@@ -104,8 +104,8 @@ export default function StartPage() {
 
   // 취조 시작
   const handleStartInvestigation = () => {
-    // TODO: 다음 페이지로 이동
-    console.log("취조 시작!");
+    console.log("캐릭터 선택 페이지로 이동");
+    router.push("/characterselect");
   };
 
   return (
