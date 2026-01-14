@@ -110,34 +110,41 @@ export default function CharacterSelectPage() {
         </div>
 
         {/* 2. 상단 네비게이션 */}
-        <div className="relative z-20 w-full flex justify-between items-center px-10 py-10">
-          <button
-            onClick={() => router.push("/start")}
-            className="hover:scale-110 transition-transform active:scale-95"
-          >
-            <Image
-              src="/icon/sign_out_icon.svg"
-              alt="Back"
-              width={48}
-              height={48}
-            />
-          </button>
-
-          <div className="relative overflow-hidden bg-[#4a3427]/95 border-2 border-[#8b5e3c] px-12 py-3 rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,0.6)]">
-            <div className="absolute inset-0 z-0">
+        <div className="relative z-20 w-full grid grid-cols-3 items-center px-10 py-10">
+          {/* 왼쪽: 뒤로가기 (왼쪽 정렬) */}
+          <div className="justify-self-start">
+            <button
+              onClick={() => router.push("/start")}
+              className="hover:scale-110 transition-transform active:scale-95"
+            >
               <Image
-                src={bgImage2}
-                alt="Title Background"
-                fill
-                className="object-cover opacity-40"
+                src="/icon/sign_out_icon.svg"
+                alt="Back"
+                width={48}
+                height={48}
               />
-            </div>
-            <h1 className="relative z-10 text-[#f3e5ab] text-2xl tracking-tighter font-bold">
-              취조 할 캐릭터를 선택해주세요
-            </h1>
+            </button>
           </div>
 
-          <div className="flex gap-5">
+          {/* 가운데: 타이틀 (진짜 가운데 정렬) */}
+          <div className="justify-self-center">
+            <div className="relative w-[520px] overflow-hidden bg-[#4a3427]/95 border-3 border-[#8b5e3c] px-12 py-3 rounded-sm shadow-[4px_4px_0px_0px_rgba(0,0,0,0.6)] flex items-center justify-center">
+              <div className="absolute inset-0 z-0">
+                <Image
+                  src={bgImage2}
+                  alt="Title Background"
+                  fill
+                  className="object-cover opacity-40"
+                />
+              </div>
+              <h1 className="relative z-10 text-[#f3e5ab] text-2xl whitespace-nowrap tracking-tight font-bold">
+                취조 할 캐릭터를 선택해주세요
+              </h1>
+            </div>
+          </div>
+
+          {/* 오른쪽: 아이콘들 (오른쪽 정렬) */}
+          <div className="justify-self-end flex gap-5">
             <button className="hover:scale-110 transition-transform active:scale-95">
               <Image
                 src="/icon/memo_icon.svg"
@@ -320,7 +327,7 @@ export default function CharacterSelectPage() {
         <div className="relative z-20 mt-14">
           <button
             onClick={handleStartClick}
-            className={`relative overflow-hidden px-24 py-5 border-4 rounded-md text-2xl font-bold transition-all duration-300 shadow-[0_6px_0_0_#2a1d15] active:translate-y-1 active:shadow-none
+            className={`relative overflow-hidden px-24 py-3 border-4 rounded-md text-2xl font-bold transition-all duration-300 shadow-[0_6px_0_0_#2a1d15] active:translate-y-1 active:shadow-none
               ${
                 selectedId
                   ? "border-[#ffcc33] text-[#ffcc33] cursor-pointer shadow-[0_0_25px_rgba(255,204,51,0.6)] scale-105"
