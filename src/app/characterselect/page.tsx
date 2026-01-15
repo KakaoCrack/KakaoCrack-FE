@@ -10,6 +10,7 @@ import buttonBg from "@/assets/images/캐릭터 선택 배경 2.png";
 import nameBg from "@/assets/images/캐릭터 선택 배경 3 (캐릭터 이름).png";
 import frameBg from "@/assets/images/캐릭터 액자 배경.png";
 import inventoryBg from "@/assets/images/인벤토리 배경.png";
+import userMemoBg from "@/assets/images/사용자 메모.png";
 
 // 아이템 타입 정의
 type Item = {
@@ -55,6 +56,8 @@ const ITEMS: Item[] = [
 export default function CharacterSelectPage() {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [showMemoModal, setShowMemoModal] = useState(false);
+  const [memoText, setMemoText] = useState("");
 
   // 인벤토리 관련 상태
   const [inventory, setInventory] = useState<Item[]>(ITEMS);
@@ -74,6 +77,16 @@ export default function CharacterSelectPage() {
     }
   };
 
+  const handleSaveMemo = () => {
+    console.log("메모 저장:", memoText);
+    setShowMemoModal(false);
+  };
+
+  const handleCloseMemo = () => {
+    setShowMemoModal(false);
+    setMemoText(""); // 닫으면 내용 버리기
+  };
+
   // 인벤토리에서 아이템 상세 보기 함수
   const handleItemDetail = (item: Item) => {
     setCurrentItem(item);
@@ -83,8 +96,15 @@ export default function CharacterSelectPage() {
   // 시작 버튼 클릭 핸들러
   const handleStartClick = () => {
     if (selectedId) {
-      console.log("Start button clicked with character:", selectedId);
-      // TODO: 실제 게임 페이지로 이동하는 로직 추가
+      // 선택된 캐릭터의 이름 찾기
+      const selectedCharacter = CHARACTERS.find(
+        (char) => char.id === selectedId
+      );
+      if (selectedCharacter) {
+        console.log("취조 시작:", selectedCharacter.name);
+        // 캐릭터 이름과 함께 취조 페이지로 이동
+        router.push(`/interrogation?character=${selectedCharacter.name}`);
+      }
     } else {
       // 캐릭터가 선택되지 않았을 때 오류 모달 띄우기
       setShowErrorModal(true);
@@ -145,13 +165,17 @@ export default function CharacterSelectPage() {
 
           {/* 오른쪽: 아이콘들 (오른쪽 정렬) */}
           <div className="justify-self-end flex gap-5">
-            <button className="hover:scale-110 transition-transform active:scale-95">
+            <button
+              onClick={() => setShowMemoModal(true)}
+              className="hover:scale-110 transition-transform active:scale-95"
+            >
+              {" "}
               <Image
                 src="/icon/memo_icon.svg"
                 alt="Memo"
                 width={48}
                 height={48}
-              />
+              />{" "}
             </button>
             <button
               onClick={() => setShowInventory(!showInventory)}
@@ -166,6 +190,58 @@ export default function CharacterSelectPage() {
             </button>
           </div>
         </div>
+
+        {/* 메모 모달 */}
+        {showMemoModal && (
+          <div className="absolute inset-0 z-[999] bg-black/60 animate-fadeIn">
+            <div className="absolute top-[110px] left-1/2 -translate-x-1/2 w-[360px] h-[330px] relative">
+              {/* 배경 이미지가 클릭을 가로채지 않게 */}
+              <Image
+                src={userMemoBg}
+                alt="메모지"
+                fill
+                priority
+                className="object-contain pointer-events-none"
+              />
+
+              {/* X 닫기 버튼: 무조건 최상단 + 클릭 가능 */}
+              <button
+                type="button"
+                onClick={handleCloseMemo}
+                className="absolute top-11 right-2 z-50 w-8 h-9 flex items-center justify-center pointer-events-auto hover:scale-110 active:scale-95 transition-transform"
+              >
+                <Image
+                  src="/icon/cancel_icon.svg"
+                  alt="닫기"
+                  width={25}
+                  height={25}
+                  className="pointer-events-none"
+                />
+              </button>
+
+              {/* 내용 */}
+              <div className="absolute inset-0 px-10 pt-20 pb-10 flex flex-col z-40">
+                <h3 className="text-2xl text-gray-800 text-center mb-4">
+                  사용자 메모
+                </h3>
+
+                <textarea
+                  value={memoText}
+                  onChange={(e) => setMemoText(e.target.value)}
+                  placeholder="메모를 입력하세요..."
+                  className="flex-1 bg-transparent text-gray-800 text-base resize-none outline-none placeholder-gray-500 p-2"
+                />
+
+                <button
+                  onClick={handleSaveMemo}
+                  className="mt-4 mx-auto px-10 py-2 bg-[#D4AF37] hover:bg-[#E2BF25] text-black font-semibold rounded-lg transition-colors"
+                >
+                  저장
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 인벤토리 패널 */}
         {showInventory && (

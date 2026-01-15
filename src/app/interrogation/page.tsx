@@ -1,0 +1,406 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
+import backgroundImage from "@/assets/images/취조 페이지 배경.png";
+import characterDialogBg from "@/assets/images/캐릭터 대사 배경.png";
+import userChatBg from "@/assets/images/사용자 채팅칸 배경.png";
+import userMemoBg from "@/assets/images/사용자 메모.png";
+import inventoryBg from "@/assets/images/인벤토리 배경.png";
+
+type Item = {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  miniIcon: string;
+};
+
+const ITEMS: Item[] = [
+  {
+    id: "fur",
+    name: "갈색 털뭉치",
+    description: "누군가가 떨어뜨린\n갈색 털뭉치이다.",
+    icon: "/character/아이템_갈색털뭉치.svg",
+    miniIcon: "/character/아이템_갈색털뭉치_미니.svg",
+  },
+  {
+    id: "coffee",
+    name: "커피 자국",
+    description: "누군가가 흘린\n커피 자국이다.",
+    icon: "/character/아이템_커피자국.svg",
+    miniIcon: "/character/아이템_커피자국_미니.svg",
+  },
+  {
+    id: "card",
+    name: "보안카드",
+    description: "누군가가 떨어뜨린\n보안카드이다.",
+    icon: "/character/아이템_보안카드.svg",
+    miniIcon: "/character/아이템_보안카드_미니.svg",
+  },
+  {
+    id: "chocolate",
+    name: "초콜릿 봉지",
+    description: "누군가가 떨어뜨린\n초콜릿 봉지이다.",
+    icon: "/character/아이템_초콜릿봉지.svg",
+    miniIcon: "/character/아이템_초콜릿봉지_미니.svg",
+  },
+];
+
+const CHARACTER_BUSTS: Record<string, string> = {
+  라이언: "/character/라이언_기본_흉상.svg",
+  무지: "/character/무지_기본_흉상.svg",
+  어피치: "/character/어피치_기본_흉상.svg",
+  프로도: "/character/프로도_기본_흉상.svg",
+};
+
+export default function InterrogationPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [showMemoModal, setShowMemoModal] = useState(false);
+  const [userInput, setUserInput] = useState("");
+  const [memoText, setMemoText] = useState("");
+  const [selectedCharacter, setSelectedCharacter] = useState("라이언");
+
+  // 인벤토리 관련 상태
+  const [inventory] = useState<Item[]>(ITEMS); // 임시: 모든 아이템 소지
+  const [showInventory, setShowInventory] = useState(false);
+  const [showItemDetailModal, setShowItemDetailModal] = useState(false);
+  const [currentItem, setCurrentItem] = useState<Item | null>(null);
+
+  useEffect(() => {
+    const character = searchParams.get("character");
+    if (character && CHARACTER_BUSTS[character]) {
+      setSelectedCharacter(character);
+    }
+  }, [searchParams]);
+
+  const handleLogout = () => {
+    router.push("/characterselect");
+  };
+
+  const handleSendMessage = () => {
+    if (!userInput.trim()) return;
+    console.log("전송:", userInput);
+    setUserInput("");
+  };
+
+  const handleSaveMemo = () => {
+    console.log("메모 저장:", memoText);
+    setShowMemoModal(false);
+  };
+
+  const handleCloseMemo = () => {
+    setShowMemoModal(false);
+    setMemoText(""); // 닫으면 내용 버리기
+  };
+
+  const handleItemDetail = (item: Item) => {
+    setCurrentItem(item);
+    setShowItemDetailModal(true);
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-black">
+      <div className="relative w-[430px] h-[844px] overflow-hidden">
+        {/* 배경 */}
+        <Image
+          src={backgroundImage}
+          alt="취조 배경"
+          fill
+          className="object-cover"
+          priority
+        />
+
+        {/* 상단 아이콘: 왼쪽(나가기) + 오른쪽(메모/인벤) */}
+        <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 pt-4">
+          <button
+            onClick={handleLogout}
+            className="w-12 h-12 transition-transform hover:scale-110 active:scale-95"
+          >
+            <Image
+              src="/icon/sign_out_icon.svg"
+              alt="뒤로가기"
+              width={40}
+              height={40}
+            />
+          </button>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setShowMemoModal(true)}
+              className="w-12 h-12 transition-transform hover:scale-110 active:scale-95"
+            >
+              <Image
+                src="/icon/memo_icon.svg"
+                alt="메모"
+                width={40}
+                height={40}
+              />
+            </button>
+
+            <button
+              onClick={() => setShowInventory((v) => !v)}
+              className="w-12 h-12 transition-transform hover:scale-110 active:scale-95"
+            >
+              <Image
+                src="/icon/bag_icon.svg"
+                alt="인벤토리"
+                width={40}
+                height={40}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* =========================
+          완전 분리(absolute) 레이아웃
+           ========================= */}
+
+        {/* 게이지 */}
+        <div className="absolute left-1/2 top-[220px] -translate-x-1/2 z-40 w-[230px] space-y-3">
+          <div className="relative h-[16px] rounded-full bg-gray-300/70 overflow-visible">
+            <div className="absolute left-0 top-0 h-full w-[60%] rounded-full bg-gradient-to-r from-pink-400 to-pink-500" />
+            <div className="absolute left-[60%] top-1/2 -translate-x-1/2 -translate-y-1/2">
+              <Image
+                src="/icon/heart_icon.svg"
+                alt="호감도"
+                width={30}
+                height={30}
+              />
+            </div>
+          </div>
+
+          <div className="relative h-[16px] rounded-full bg-gray-300/70 overflow-visible">
+            <div className="absolute left-0 top-0 h-full w-[50%] rounded-full bg-gradient-to-r from-blue-400 to-blue-500" />
+            <div className="absolute left-[50%] top-1/2 -translate-x-1/2 -translate-y-1/2">
+              <Image
+                src="/icon/cloud_icon.svg"
+                alt="의심도"
+                width={30}
+                height={30}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 캐릭터 */}
+        <div className="absolute left-1/2 top-[290px] -translate-x-1/2 z-50 pointer-events-none w-[250px] h-[250px] flex items-center justify-center">
+          <div className="relative w-full h-full">
+            <Image
+              src={CHARACTER_BUSTS[selectedCharacter]}
+              alt={selectedCharacter}
+              fill
+              priority
+              className="select-none object-contain"
+            />
+          </div>
+        </div>
+
+        {/* 캐릭터 말 박스 */}
+        <div className="absolute left-1/2 top-[540px] -translate-x-1/2 z-30 w-[400px] h-[170px] rounded-2xl overflow-hidden border-[4px] border-[#864313] shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
+          <Image
+            src={characterDialogBg}
+            alt="대사 배경"
+            fill
+            className="object-cover"
+            priority
+          />
+          <div className="absolute inset-0 flex items-center justify-center px-8 py-6">
+            <p className="text-white text-center text-base leading-relaxed">
+              캐릭터 말
+            </p>
+          </div>
+        </div>
+
+        {/* 사용자 입력창 */}
+        <div className="absolute left-1/2 bottom-6 -translate-x-1/2 z-40 w-[400px] h-[92px]">
+          <div className="relative w-full h-full border-[4px] border-[#864313] rounded-2xl shadow-[0_8px_20px_rgba(0,0,0,0.6)] overflow-hidden">
+            <Image
+              src={userChatBg}
+              alt="입력창 배경"
+              fill
+              className="object-cover"
+              priority
+            />
+            <div className="absolute inset-0 flex items-center px-8">
+              <input
+                type="text"
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+                placeholder="질문을 입력하세요..."
+                className="flex-1 bg-transparent text-white text-lg outline-none placeholder-white/60"
+              />
+              <button
+                onClick={handleSendMessage}
+                className="ml-3 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
+              >
+                <Image
+                  src="/icon/reading_glasses_icon.svg"
+                  alt="전송"
+                  width={25}
+                  height={25}
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* =========================
+          오버레이들
+           ========================= */}
+
+        {/* 인벤토리 패널 (1번만) */}
+        {showInventory && (
+          <div className="absolute top-[86px] right-4 z-50 animate-fadeIn">
+            <div className="relative w-[150px] h-[240px] rounded-2xl overflow-hidden border-[5px] border-[#463017] shadow-2xl">
+              <Image
+                src={inventoryBg}
+                alt="인벤토리 배경"
+                fill
+                className="object-cover"
+                priority
+              />
+              <div className="absolute inset-0 flex flex-col">
+                {ITEMS.map((item, idx) => {
+                  const inventoryItem = inventory.find((i) => i.id === item.id);
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={[
+                        "flex-1 flex items-center justify-between px-2",
+                        idx !== ITEMS.length - 1
+                          ? "border-b-[4px] border-[#2b1b0f]/80"
+                          : "",
+                      ].join(" ")}
+                      style={{ background: "rgba(0,0,0,0.10)" }}
+                    >
+                      <div className="w-12 h-12 flex items-center justify-center">
+                        {inventoryItem && (
+                          <Image
+                            src={inventoryItem.miniIcon}
+                            alt={inventoryItem.name}
+                            width={60}
+                            height={60}
+                          />
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() =>
+                          inventoryItem && handleItemDetail(inventoryItem)
+                        }
+                        disabled={!inventoryItem}
+                        className={[
+                          "w-8 h-8 flex items-center justify-center transition-transform",
+                          inventoryItem
+                            ? "hover:scale-110 cursor-pointer"
+                            : "opacity-20 cursor-default",
+                        ].join(" ")}
+                      >
+                        <Image
+                          src="/icon/small_reading_glasses_icon.svg"
+                          alt="상세보기"
+                          width={30}
+                          height={30}
+                        />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 아이템 상세 모달 */}
+        {showItemDetailModal && currentItem && (
+          <div className="absolute inset-0 z-[999] flex items-center justify-center bg-black/60 animate-fadeIn">
+            <div className="bg-black/90 border-4 border-[#D4AF37] rounded-3xl p-8 w-[380px] shadow-2xl">
+              <div className="flex flex-col items-center">
+                <div className="text-[#D4AF37] text-lg font-bold mb-6 text-center leading-relaxed whitespace-pre-line">
+                  {currentItem.description}
+                </div>
+                <button
+                  onClick={() => setShowItemDetailModal(false)}
+                  className="px-8 py-2 bg-[#4A4A4A] hover:bg-[#5A5A5A] text-[#D4AF37] font-semibold rounded-lg transition-colors"
+                >
+                  확인
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 메모 모달 */}
+        {showMemoModal && (
+          <div className="absolute inset-0 z-[999] bg-black/60 animate-fadeIn">
+            <div className="absolute top-[110px] left-1/2 -translate-x-1/2 w-[360px] h-[330px] relative">
+              <Image
+                src={userMemoBg}
+                alt="메모지"
+                fill
+                priority
+                className="object-contain pointer-events-none"
+              />
+
+              {/* X 닫기 버튼: 무조건 최상단 + 클릭 가능 */}
+              <button
+                type="button"
+                onClick={handleCloseMemo}
+                className="absolute top-11 right-2 z-50 w-8 h-9 flex items-center justify-center pointer-events-auto hover:scale-110 active:scale-95 transition-transform"
+              >
+                <Image
+                  src="/icon/cancel_icon.svg"
+                  alt="닫기"
+                  width={25}
+                  height={25}
+                  className="pointer-events-none"
+                />
+              </button>
+
+              {/* 내용 */}
+              <div className="absolute inset-0 px-10 pt-20 pb-10 flex flex-col z-40">
+                <h3 className="text-2xl text-gray-800 text-center mb-4">
+                  사용자 메모
+                </h3>
+
+                <textarea
+                  value={memoText}
+                  onChange={(e) => setMemoText(e.target.value)}
+                  placeholder="메모를 입력하세요..."
+                  className="flex-1 bg-transparent text-gray-800 text-base resize-none outline-none placeholder-gray-500 p-2"
+                />
+
+                <button
+                  onClick={handleSaveMemo}
+                  className="mt-4 mx-auto px-10 py-2 bg-[#D4AF37] hover:bg-[#E2BF25] text-black font-semibold rounded-lg transition-colors"
+                >
+                  저장
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <style jsx>{`
+          @keyframes fadeIn {
+            from {
+              opacity: 0;
+            }
+            to {
+              opacity: 1;
+            }
+          }
+          .animate-fadeIn {
+            animation: fadeIn 0.25s ease-out;
+          }
+        `}</style>
+      </div>
+    </div>
+  );
+}
