@@ -283,7 +283,7 @@ export default function InterrogationPage() {
             <div className="relative w-[360px] bg-[#1a1a1a] border-2 border-[#D4AF37] rounded-lg p-8 flex flex-col items-center shadow-[0_0_20px_rgba(212,175,55,0.3)] text-center">
               {/* 텍스트 내용 */}
               <div className="space-y-4 mb-8">
-                <p className="text-[#f3e5ab] text-lg leading-relaxed whitespace-pre-line font-bold">
+                <p className="text-[#ffffff] text-lg leading-relaxed whitespace-pre-line font-bold">
                   사건의 범인은{" "}
                   <span className="text-[#D4AF37]">{selectedCharacter}</span>
                   (으)로 밝혀졌다.
