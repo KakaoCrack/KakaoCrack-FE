@@ -59,6 +59,9 @@ export default function InterrogationPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // 엔딩 모달 표시 여부 상태
+  const [showEndingModal, setShowEndingModal] = useState(false);
+
   const [showMemoModal, setShowMemoModal] = useState(false);
   const [userInput, setUserInput] = useState("");
   const [memoText, setMemoText] = useState("");
@@ -84,7 +87,18 @@ export default function InterrogationPage() {
   const handleSendMessage = () => {
     if (!userInput.trim()) return;
     console.log("전송:", userInput);
-    setUserInput("");
+
+    // 테스트용 코드: "너 범인이지?" 입력 시 모달 출력
+    if (userInput == "너 범인이지?") {
+      setShowEndingModal(true);
+      setUserInput("");
+    }
+  }; // <--- 여기가 닫혀야 화면이 나옵니다.
+
+  // [추가됨] 엔딩 모달에서 NEXT 버튼 클릭 시 실행
+  const handleEndingNext = () => {
+    // 성공 결과 페이지로 이동 (쿼리 파라미터는 필요에 따라 조정)
+    router.push("/ending_arrest");
   };
 
   const handleSaveMemo = () => {
@@ -113,6 +127,15 @@ export default function InterrogationPage() {
           className="object-cover"
           priority
         />
+
+        {/* 개발 테스트용 버튼 (화면 왼쪽 상단 구석에 배치) */}
+        {/* 나중에 실제 게임 로직이 완성되면 삭제 */}
+        <button
+          onClick={() => setShowEndingModal(true)}
+          className="absolute top-16 left-4 z-50 bg-red-500/50 text-white text-xs px-2 py-1 rounded hover:bg-red-500"
+        >
+          (TEST) 자백 성공
+        </button>
 
         {/* 상단 아이콘: 왼쪽(나가기) + 오른쪽(메모/인벤) */}
         <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 pt-4">
@@ -252,6 +275,43 @@ export default function InterrogationPage() {
         {/* =========================
           오버레이들
            ========================= */}
+
+        {/* 엔딩 안내 모달 (디자인 시안 반영) */}
+        {showEndingModal && (
+          <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/80 animate-fadeIn">
+            {/* 모달 컨테이너 */}
+            <div className="relative w-[360px] bg-[#1a1a1a] border-2 border-[#D4AF37] rounded-lg p-8 flex flex-col items-center shadow-[0_0_20px_rgba(212,175,55,0.3)] text-center">
+              {/* 텍스트 내용 */}
+              <div className="space-y-4 mb-8">
+                <p className="text-[#f3e5ab] text-lg leading-relaxed whitespace-pre-line font-bold">
+                  사건의 범인은{" "}
+                  <span className="text-[#D4AF37]">{selectedCharacter}</span>
+                  (으)로 밝혀졌다.
+                  <br />
+                  <br />
+                  {selectedCharacter}는 자신의 잘못을 뉘우치고 동상을 원래대로
+                  돌려놓았다.
+                  <br />
+                  <br />
+                  {selectedCharacter}의 반성하는 태도와 자백으로 선처해 주기로
+                  하였다.
+                  <br />
+                  <br />
+                  &quot;황금 콘 도난 사건&quot;은 이렇게 일단락되었고... 카카오
+                  회사의 평화가 찾아왔다...
+                </p>
+              </div>
+
+              {/* NEXT 버튼 */}
+              <button
+                onClick={handleEndingNext}
+                className="px-10 py-2 border border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black transition-colors font-bold rounded shadow-[0_0_10px_rgba(212,175,55,0.2)]"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 인벤토리 패널 (1번만) */}
         {showInventory && (
