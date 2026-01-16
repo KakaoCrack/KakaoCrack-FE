@@ -1,6 +1,7 @@
 // src/app/layout.tsx
 import "./globals.css";
 import localFont from "next/font/local";
+import MotionProvider from "./MotionProvider";
 
 const dungGeunMO = localFont({
   src: "../assets/fonts/DungGeunMO.otf",
@@ -14,7 +15,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <body className={dungGeunMO.className}>{children}</body>
+      <body className={dungGeunMO.className}>
+        <MotionProvider>{children}</MotionProvider>
+      </body>
     </html>
   );
 }
