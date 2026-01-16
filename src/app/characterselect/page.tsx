@@ -380,7 +380,7 @@ export default function CharacterSelectPage() {
                   />
                 </div>
               </div>
-              <div className="mt-4 relative overflow-hidden w-full border-2 border-[#5d4037] py-3 rounded-lg text-center shadow-lg">
+              <div className="mt-4 relative overflow-hidden w-full border-4 border-[#5d4037] py-3 rounded-lg text-center shadow-lg">
                 <div className="absolute inset-0 z-0">
                   <Image
                     src={nameBg}
