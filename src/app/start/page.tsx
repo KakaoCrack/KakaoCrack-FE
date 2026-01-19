@@ -66,6 +66,12 @@ export default function StartPage() {
       setShowTutorialModal(true);
     }, 1000);
 
+    // 게임 시작 시간 기록 (플레이타임 계산용)
+    const startTime = localStorage.getItem("gameStartTime");
+    if (!startTime) {
+      localStorage.setItem("gameStartTime", new Date().toISOString());
+    }
+
     return () => clearTimeout(timer);
   }, []);
 

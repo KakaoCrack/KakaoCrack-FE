@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 // 캐릭터 선택 페이지에서 사용했던 배경과 폰트 스타일을 유지합니다.
@@ -8,16 +9,60 @@ import buttonBg from "@/assets/images/캐릭터 선택 배경 2.png";
 
 export default function SuccessEndingPage() {
   const router = useRouter();
+  const [playTime, setPlayTime] = useState<string>("0분 0초");
+
+  useEffect(() => {
+    // 플레이타임 계산
+    const startTimeStr = localStorage.getItem("gameStartTime");
+    if (startTimeStr) {
+      const startTime = new Date(startTimeStr);
+      const endTime = new Date();
+      
+      // 밀리초 차이 계산
+      const diffMs = endTime.getTime() - startTime.getTime();
+      
+      // 시간, 분, 초로 변환
+      const hours = Math.floor(diffMs / 3600000);
+      const minutes = Math.floor((diffMs % 3600000) / 60000);
+      const seconds = Math.floor((diffMs % 60000) / 1000);
+      
+      // 시간 포맷 생성
+      let timeString = "";
+      if (hours > 0) {
+        timeString = `${hours}시간 ${minutes}분 ${seconds}초`;
+      } else if (minutes > 0) {
+        timeString = `${minutes}분 ${seconds}초`;
+      } else {
+        timeString = `${seconds}초`;
+      }
+      
+      setPlayTime(timeString);
+      
+      // 플레이타임을 localStorage에 저장 (카카오 공유 시 사용)
+      localStorage.setItem("playTime", timeString);
+      
+      // 디버깅용 로그
+      console.log("게임 시작 시간:", startTime.toLocaleString());
+      console.log("게임 종료 시간:", endTime.toLocaleString());
+      console.log("플레이 시간:", timeString);
+      console.log("총 밀리초:", diffMs);
+    }
+  }, []);
 
   // 다시 시작하기: 메인 화면이나 캐릭터 선택 화면으로 이동
   const handleRestart = () => {
+    // 게임 시작 시간 초기화
+    localStorage.removeItem("gameStartTime");
+    localStorage.removeItem("playTime");
     router.push("/start"); // 또는 캐릭터 선택 페이지 경로
   };
 
   // 결과 공유하기: 카카오 공유 등 외부 API 연동 가능
   const handleShare = () => {
     console.log("결과 공유하기 클릭");
+    console.log("플레이타임:", playTime);
     // TODO: 카카오 공유하기 로직 추가
+    // 플레이타임은 localStorage.getItem("playTime")으로 가져올 수 있음
     /////////////////////////////////
   };
 
@@ -78,9 +123,14 @@ export default function SuccessEndingPage() {
           </div>
 
           {/* 결과 메시지: 금색(#D4AF37) 포인트 */}
-          <span className="text-[#D4AF37] text-4xl font-bold mb-16 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] text-center">
-            추리 성공 !! 황금 콘 동상을 되찾았습니다 ! <br />
-          </span>
+          <div className="text-center mb-8">
+            <span className="text-[#D4AF37] text-4xl font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+              추리 성공 !! 황금 콘 동상을 되찾았습니다 ! <br />
+            </span>
+            <div className="mt-6 text-[#f3e5ab] text-2xl font-semibold">
+              플레이 타임: <span className="text-[#D4AF37]">{playTime}</span>
+            </div>
+          </div>
 
           {/* 3. 하단 버튼 영역 */}
           <div className="flex gap-8">
