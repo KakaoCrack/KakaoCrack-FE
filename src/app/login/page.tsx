@@ -1,26 +1,37 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import backgroundImage from "@/assets/images/로그인 배경화면.png";
+import { clearAuthData, getKakaoLoginUrl } from "@/lib/api/auth";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
 
   // 로그인 페이지 진입 시 게임 데이터 초기화
   useEffect(() => {
-    // 게임 관련 localStorage 초기화
-    localStorage.removeItem("collectedItems"); // 획득한 아이템
-    localStorage.removeItem("gameStartTime"); // 게임 시작 시간
-    localStorage.removeItem("playTime"); // 플레이 타임
+    // 모든 인증 및 게임 데이터 초기화
+    clearAuthData();
     
     console.log("게임 데이터 초기화 완료");
   }, []);
 
   const handleKakaoLogin = () => {
-    console.log("카카오 로그인 (로컬) → /game 이동");
-    router.push("/game");
+    try {
+      setIsLoading(true);
+      
+      // 카카오 로그인 URL로 리다이렉트
+      const kakaoUrl = getKakaoLoginUrl();
+      console.log("카카오 로그인 URL로 이동:", kakaoUrl);
+      
+      window.location.href = kakaoUrl;
+    } catch (error) {
+      console.error("카카오 로그인 오류:", error);
+      alert(error instanceof Error ? error.message : "카카오 로그인에 실패했습니다.");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -70,6 +81,7 @@ export default function LoginPage() {
           <div className="flex flex-col items-center w-full">
             <button
               onClick={handleKakaoLogin}
+              disabled={isLoading}
               className="
                 relative
                 w-full max-w-[290px] h-[60px]
@@ -77,19 +89,22 @@ export default function LoginPage() {
                 flex items-center justify-center gap-3
                 transition-transform hover:scale-105 active:scale-95
                 shadow-lg
+                disabled:opacity-50 disabled:cursor-not-allowed
               "
             >
               {/* 카카오 아이콘 */}
-              <Image
-                src="/icon/kakao_icon.svg"
-                alt="카카오 로그인"
-                width={24}
-                height={24}
-                className="absolute left-6 top-1/3 -translate-y-1/2 translate-y-[1px]"
-              />
+              {!isLoading && (
+                <Image
+                  src="/icon/kakao_icon.svg"
+                  alt="카카오 로그인"
+                  width={24}
+                  height={24}
+                  className="absolute left-6 top-1/3 -translate-y-1/2 translate-y-[1px]"
+                />
+              )}
 
               <span className="text-[#3C1E1E] text-xl font-bold">
-                카카오 로그인
+                {isLoading ? "로그인 중..." : "카카오 로그인"}
               </span>
             </button>
 

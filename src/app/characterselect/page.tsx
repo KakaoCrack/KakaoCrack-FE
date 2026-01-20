@@ -11,6 +11,10 @@ import nameBg from "@/assets/images/캐릭터 선택 배경 3 (캐릭터 이름)
 import frameBg from "@/assets/images/캐릭터 액자 배경.png";
 import inventoryBg from "@/assets/images/인벤토리 배경.png";
 import userMemoBg from "@/assets/images/사용자 메모.png";
+import {
+  getSessionInventory,
+  ITEM_ID_REVERSE_MAP,
+} from "@/lib/api/inventory";
 
 // 아이템 타입 정의
 type Item = {
@@ -21,7 +25,7 @@ type Item = {
   miniIcon: string;
 };
 
-// 아이템 데이터
+// 아이템 데이터 (인벤토리 순서)
 const ITEMS: Item[] = [
   {
     id: "fur",
@@ -29,13 +33,6 @@ const ITEMS: Item[] = [
     description: "누군가가 떨어뜨린\n갈색 털뭉치이다.",
     icon: "/character/아이템_갈색털뭉치.svg",
     miniIcon: "/character/아이템_갈색털뭉치_미니.svg",
-  },
-  {
-    id: "coffee",
-    name: "커피 자국",
-    description: "누군가가 흘린\n커피 자국이다.",
-    icon: "/character/아이템_커피자국.svg",
-    miniIcon: "/character/아이템_커피자국_미니.svg",
   },
   {
     id: "card",
@@ -51,6 +48,14 @@ const ITEMS: Item[] = [
     icon: "/character/아이템_초콜릿봉지.svg",
     miniIcon: "/character/아이템_초콜릿봉지_미니.svg",
   },
+  {
+    id: "coffee",
+    name: "커피 자국",
+    description: "누군가가 흘린\n커피 자국이다.",
+    icon: "/character/아이템_커피자국.svg",
+    miniIcon: "/character/아이템_커피자국_미니.svg",
+  },
+  // 커피자국은 서버 API 연동 시 어피치 호감도 조건 충족으로 자동 지급
 ];
 
 export default function CharacterSelectPage() {
@@ -68,12 +73,47 @@ export default function CharacterSelectPage() {
   // 오류 모달 상태
   const [showErrorModal, setShowErrorModal] = useState(false);
 
-  // localStorage에서 획득한 아이템 불러오기
+  // 세션 인벤토리 불러오기
   useEffect(() => {
-    const savedItems = localStorage.getItem("collectedItems");
-    if (savedItems) {
-      setInventory(JSON.parse(savedItems));
-    }
+    const loadInventory = async () => {
+      const sessionId = localStorage.getItem("sessionId");
+      if (!sessionId) {
+        console.log("세션 ID가 없습니다. localStorage에서 불러옵니다.");
+        // 세션 ID가 없으면 localStorage에서 불러오기 (폴백)
+        const savedItems = localStorage.getItem("collectedItems");
+        if (savedItems) {
+          setInventory(JSON.parse(savedItems));
+        }
+        return;
+      }
+
+      try {
+        const items = await getSessionInventory(sessionId);
+        
+        // 백엔드 아이템을 프론트엔드 형식으로 변환
+        const frontendItems: Item[] = items
+          .map((item) => {
+            const frontendId = ITEM_ID_REVERSE_MAP[item.itemId];
+            const itemData = ITEMS.find((i) => i.id === frontendId);
+            return itemData ? { ...itemData } : null;
+          })
+          .filter((item): item is Item => item !== null);
+
+        setInventory(frontendItems);
+
+        // localStorage에도 저장 (동기화)
+        localStorage.setItem("collectedItems", JSON.stringify(frontendItems));
+      } catch (error) {
+        console.error("인벤토리 로드 실패:", error);
+        // 에러 시 localStorage에서 불러오기 (폴백)
+        const savedItems = localStorage.getItem("collectedItems");
+        if (savedItems) {
+          setInventory(JSON.parse(savedItems));
+        }
+      }
+    };
+
+    loadInventory();
   }, []);
 
   // 캐릭터 선택 토글 함수
