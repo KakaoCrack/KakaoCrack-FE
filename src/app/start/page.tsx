@@ -5,6 +5,17 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import backgroundImage from "@/assets/images/시작 페이지 배경화면.png";
 import inventoryBg from "@/assets/images/인벤토리 배경.png";
+import {
+  getSessionInventory,
+  acquireItem,
+  ITEM_ID_MAP,
+  ITEM_ID_REVERSE_MAP,
+} from "@/lib/api/inventory";
+import {
+  createGameSession,
+  saveSessionData,
+  getSessionId,
+} from "@/lib/api/session";
 
 // 아이템 타입 정의
 type Item = {
@@ -24,13 +35,6 @@ const ITEMS: Item[] = [
     miniIcon: "/character/아이템_갈색털뭉치_미니.svg",
   },
   {
-    id: "coffee",
-    name: "커피 자국",
-    description: "누군가가 흘린\n커피 자국이다.",
-    icon: "/character/아이템_커피자국.svg",
-    miniIcon: "/character/아이템_커피자국_미니.svg",
-  },
-  {
     id: "card",
     name: "보안카드",
     description: "누군가가 떨어뜨린\n보안카드이다.",
@@ -44,6 +48,14 @@ const ITEMS: Item[] = [
     icon: "/character/아이템_초콜릿봉지.svg",
     miniIcon: "/character/아이템_초콜릿봉지_미니.svg",
   },
+  {
+    id: "coffee",
+    name: "커피 자국",
+    description: "누군가가 흘린\n커피 자국이다.",
+    icon: "/character/아이템_커피자국.svg",
+    miniIcon: "/character/아이템_커피자국_미니.svg",
+  },
+  // 커피자국은 화면에 표시되지 않고, 서버 API 연동 시 어피치 호감도 조건 충족으로 자동 지급
 ];
 
 export default function StartPage() {
@@ -60,42 +72,103 @@ export default function StartPage() {
   const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [currentItem, setCurrentItem] = useState<Item | null>(null);
 
-  // 페이지 로드 시 1초 후 튜토리얼 모달 표시 + localStorage에서 아이템 불러오기
+  // 페이지 로드 시 세션 생성 및 인벤토리 불러오기
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowTutorialModal(true);
     }, 1000);
 
-    // 게임 시작 시간 기록 (플레이타임 계산용)
-    const startTime = localStorage.getItem("gameStartTime");
-    if (!startTime) {
-      localStorage.setItem("gameStartTime", new Date().toISOString());
-    }
+    const initializeGame = async () => {
+      let sessionId = getSessionId();
 
-    // localStorage에서 이미 획득한 아이템 불러오기
-    const savedItems = localStorage.getItem("collectedItems");
-    if (savedItems) {
-      const parsedItems = JSON.parse(savedItems);
-      setInventory(parsedItems);
-      // 획득한 아이템 ID 목록도 복원
-      setCollectedItems(parsedItems.map((item: Item) => item.id));
-    }
+      // 세션이 없으면 새로 생성
+      if (!sessionId) {
+        console.log("세션이 없습니다. 새 게임 세션을 생성합니다...");
+        
+        try {
+          const session = await createGameSession();
+          saveSessionData(session);
+          sessionId = session.sessionId.toString();
+          
+          console.log("✅ 새 게임 세션 생성 완료:", {
+            sessionId: session.sessionId,
+            remainingQuestions: session.remainingQuestions,
+            startTime: session.startTime,
+          });
+        } catch (error) {
+          console.error("세션 생성 실패:", error);
+          
+          if (error instanceof Error && error.message.includes('인증')) {
+            alert("로그인이 필요합니다.");
+            router.push("/login");
+          }
+          return;
+        }
+      }
+
+      // 세션 인벤토리 불러오기
+      try {
+        const items = await getSessionInventory(sessionId);
+        
+        // 백엔드 아이템을 프론트엔드 형식으로 변환
+        const frontendItems: Item[] = items
+          .map((item) => {
+            const frontendId = ITEM_ID_REVERSE_MAP[item.itemId];
+            const itemData = ITEMS.find((i) => i.id === frontendId);
+            return itemData ? { ...itemData } : null;
+          })
+          .filter((item): item is Item => item !== null);
+
+        setInventory(frontendItems);
+        setCollectedItems(frontendItems.map((item) => item.id));
+
+        // localStorage에도 저장 (다른 페이지와 동기화)
+        localStorage.setItem("collectedItems", JSON.stringify(frontendItems));
+      } catch (error) {
+        console.error("인벤토리 로드 실패:", error);
+      }
+    };
+
+    initializeGame();
 
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 아이템 획득
-  const handleItemClick = (item: Item) => {
+  const handleItemClick = async (item: Item) => {
     if (collectedItems.includes(item.id)) return;
 
-    const newInventory = [...inventory, item];
-    setCollectedItems([...collectedItems, item.id]);
-    setInventory(newInventory);
-    setCurrentItem(item);
-    setShowItemModal(true);
+    const sessionId = localStorage.getItem("sessionId");
+    if (!sessionId) {
+      alert("세션 ID가 없습니다. 로그인이 필요합니다.");
+      return;
+    }
 
-    // localStorage에 획득한 아이템 저장
-    localStorage.setItem("collectedItems", JSON.stringify(newInventory));
+    try {
+      // 백엔드 API 호출
+      const backendItemId = ITEM_ID_MAP[item.id];
+      await acquireItem(sessionId, backendItemId);
+
+      // 성공 시 상태 업데이트
+      const newInventory = [...inventory, item];
+      const newCollectedItems = [...collectedItems, item.id];
+
+      setCollectedItems(newCollectedItems);
+      setInventory(newInventory);
+      setCurrentItem(item);
+      setShowItemModal(true);
+
+      // localStorage에도 저장 (다른 페이지와 동기화)
+      localStorage.setItem("collectedItems", JSON.stringify(newInventory));
+    } catch (error) {
+      console.error("아이템 획득 실패:", error);
+      if (error instanceof Error) {
+        alert(error.message);
+      } else {
+        alert("아이템 획득에 실패했습니다.");
+      }
+    }
   };
 
   // 아이템 획득 모달 닫기
@@ -189,13 +262,13 @@ export default function StartPage() {
             />
           </button>
 
-          {/* 커피 자국 - 중앙 하단 */}
+          {/* 보안카드 - 중앙 왼쪽 하단 */}
           <button
             onClick={() => handleItemClick(ITEMS[1])}
-            className={`absolute bottom-40 left-[52%] transition-all duration-300 hover:scale-110 ${
+            className={`absolute bottom-10 left-[30%] transition-all duration-300 hover:scale-110 ${
               collectedItems.includes(ITEMS[1].id)
                 ? "opacity-0 scale-0"
-                : "opacity-100 scale-100"
+                : "opacity-100 scale-150"
             }`}
             style={{
               animation: collectedItems.includes(ITEMS[1].id)
@@ -206,15 +279,15 @@ export default function StartPage() {
             <Image
               src={ITEMS[1].icon}
               alt={ITEMS[1].name}
-              width={100}
-              height={100}
+              width={90}
+              height={90}
             />
           </button>
 
-          {/* 보안카드 - 중앙 왼쪽 하단 */}
+          {/* 초콜릿 봉지 - 오른쪽 하단 */}
           <button
             onClick={() => handleItemClick(ITEMS[2])}
-            className={`absolute bottom-10 left-[30%] transition-all duration-300 hover:scale-110 ${
+            className={`absolute bottom-20 right-8 transition-all duration-300 hover:scale-110 ${
               collectedItems.includes(ITEMS[2].id)
                 ? "opacity-0 scale-0"
                 : "opacity-100 scale-150"
@@ -228,28 +301,6 @@ export default function StartPage() {
             <Image
               src={ITEMS[2].icon}
               alt={ITEMS[2].name}
-              width={90}
-              height={90}
-            />
-          </button>
-
-          {/* 초콜릿 봉지 - 오른쪽 하단 */}
-          <button
-            onClick={() => handleItemClick(ITEMS[3])}
-            className={`absolute bottom-20 right-8 transition-all duration-300 hover:scale-110 ${
-              collectedItems.includes(ITEMS[3].id)
-                ? "opacity-0 scale-0"
-                : "opacity-100 scale-150"
-            }`}
-            style={{
-              animation: collectedItems.includes(ITEMS[3].id)
-                ? "collectItem 0.5s ease-out"
-                : "none",
-            }}
-          >
-            <Image
-              src={ITEMS[3].icon}
-              alt={ITEMS[3].name}
               width={80}
               height={80}
             />

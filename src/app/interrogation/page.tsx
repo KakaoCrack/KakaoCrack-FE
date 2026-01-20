@@ -8,6 +8,10 @@ import characterDialogBg from "@/assets/images/캐릭터 대사 배경.png";
 import userChatBg from "@/assets/images/사용자 채팅칸 배경.png";
 import userMemoBg from "@/assets/images/사용자 메모.png";
 import inventoryBg from "@/assets/images/인벤토리 배경.png";
+import {
+  getSessionInventory,
+  ITEM_ID_REVERSE_MAP,
+} from "@/lib/api/inventory";
 
 type Item = {
   id: string;
@@ -26,13 +30,6 @@ const ITEMS: Item[] = [
     miniIcon: "/character/아이템_갈색털뭉치_미니.svg",
   },
   {
-    id: "coffee",
-    name: "커피 자국",
-    description: "누군가가 흘린\n커피 자국이다.",
-    icon: "/character/아이템_커피자국.svg",
-    miniIcon: "/character/아이템_커피자국_미니.svg",
-  },
-  {
     id: "card",
     name: "보안카드",
     description: "누군가가 떨어뜨린\n보안카드이다.",
@@ -46,6 +43,14 @@ const ITEMS: Item[] = [
     icon: "/character/아이템_초콜릿봉지.svg",
     miniIcon: "/character/아이템_초콜릿봉지_미니.svg",
   },
+  {
+    id: "coffee",
+    name: "커피 자국",
+    description: "누군가가 흘린\n커피 자국이다.",
+    icon: "/character/아이템_커피자국.svg",
+    miniIcon: "/character/아이템_커피자국_미니.svg",
+  },
+  // 커피자국은 서버 API 연동 시 어피치 호감도 조건 충족으로 자동 지급
 ];
 
 const CHARACTER_BUSTS: Record<string, string> = {
@@ -79,12 +84,48 @@ export default function InterrogationPage() {
       setSelectedCharacter(character);
     }
 
-    // localStorage에서 획득한 아이템 불러오기
-    const savedItems = localStorage.getItem("collectedItems");
-    if (savedItems) {
-      setInventory(JSON.parse(savedItems));
-    }
-  }, [searchParams]);
+    // 세션 인벤토리 불러오기
+    const loadInventory = async () => {
+      const sessionId = localStorage.getItem("sessionId");
+      if (!sessionId) {
+        console.log("세션 ID가 없습니다. localStorage에서 불러옵니다.");
+        // 세션 ID가 없으면 localStorage에서 불러오기 (폴백)
+        const savedItems = localStorage.getItem("collectedItems");
+        if (savedItems) {
+          setInventory(JSON.parse(savedItems));
+        }
+        return;
+      }
+
+      try {
+        const items = await getSessionInventory(sessionId);
+        
+        // 백엔드 아이템을 프론트엔드 형식으로 변환
+        const frontendItems: Item[] = items
+          .map((item) => {
+            const frontendId = ITEM_ID_REVERSE_MAP[item.itemId];
+            const itemData = ITEMS.find((i) => i.id === frontendId);
+            return itemData ? { ...itemData } : null;
+          })
+          .filter((item): item is Item => item !== null);
+
+        setInventory(frontendItems);
+
+        // localStorage에도 저장 (동기화)
+        localStorage.setItem("collectedItems", JSON.stringify(frontendItems));
+      } catch (error) {
+        console.error("인벤토리 로드 실패:", error);
+        // 에러 시 localStorage에서 불러오기 (폴백)
+        const savedItems = localStorage.getItem("collectedItems");
+        if (savedItems) {
+          setInventory(JSON.parse(savedItems));
+        }
+      }
+    };
+
+    loadInventory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogout = () => {
     router.push("/characterselect");
