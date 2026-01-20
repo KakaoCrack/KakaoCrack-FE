@@ -60,7 +60,7 @@ export default function StartPage() {
   const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [currentItem, setCurrentItem] = useState<Item | null>(null);
 
-  // 페이지 로드 시 1초 후 튜토리얼 모달 표시
+  // 페이지 로드 시 1초 후 튜토리얼 모달 표시 + localStorage에서 아이템 불러오기
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowTutorialModal(true);
@@ -72,6 +72,15 @@ export default function StartPage() {
       localStorage.setItem("gameStartTime", new Date().toISOString());
     }
 
+    // localStorage에서 이미 획득한 아이템 불러오기
+    const savedItems = localStorage.getItem("collectedItems");
+    if (savedItems) {
+      const parsedItems = JSON.parse(savedItems);
+      setInventory(parsedItems);
+      // 획득한 아이템 ID 목록도 복원
+      setCollectedItems(parsedItems.map((item: Item) => item.id));
+    }
+
     return () => clearTimeout(timer);
   }, []);
 
@@ -79,10 +88,14 @@ export default function StartPage() {
   const handleItemClick = (item: Item) => {
     if (collectedItems.includes(item.id)) return;
 
+    const newInventory = [...inventory, item];
     setCollectedItems([...collectedItems, item.id]);
-    setInventory([...inventory, item]);
+    setInventory(newInventory);
     setCurrentItem(item);
     setShowItemModal(true);
+
+    // localStorage에 획득한 아이템 저장
+    localStorage.setItem("collectedItems", JSON.stringify(newInventory));
   };
 
   // 아이템 획득 모달 닫기

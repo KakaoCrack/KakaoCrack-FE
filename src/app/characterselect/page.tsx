@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { CHARACTERS } from "./character_data";
@@ -59,14 +59,22 @@ export default function CharacterSelectPage() {
   const [showMemoModal, setShowMemoModal] = useState(false);
   const [memoText, setMemoText] = useState("");
 
-  // 인벤토리 관련 상태
-  const [inventory, setInventory] = useState<Item[]>(ITEMS);
+  // 인벤토리 관련 상태 - localStorage에서 획득한 아이템만 불러오기
+  const [inventory, setInventory] = useState<Item[]>([]);
   const [showInventory, setShowInventory] = useState(false);
   const [showItemDetailModal, setShowItemDetailModal] = useState(false);
   const [currentItem, setCurrentItem] = useState<Item | null>(null);
 
   // 오류 모달 상태
   const [showErrorModal, setShowErrorModal] = useState(false);
+
+  // localStorage에서 획득한 아이템 불러오기
+  useEffect(() => {
+    const savedItems = localStorage.getItem("collectedItems");
+    if (savedItems) {
+      setInventory(JSON.parse(savedItems));
+    }
+  }, []);
 
   // 캐릭터 선택 토글 함수
   const handleCharacterClick = (id: string) => {
