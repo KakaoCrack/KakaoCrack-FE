@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import backgroundImage from "@/assets/images/로그인 배경화면.png";
@@ -7,8 +8,18 @@ import backgroundImage from "@/assets/images/로그인 배경화면.png";
 export default function LoginPage() {
   const router = useRouter();
 
+  // 로그인 페이지 진입 시 게임 데이터 초기화
+  useEffect(() => {
+    // 게임 관련 localStorage 초기화
+    localStorage.removeItem("collectedItems"); // 획득한 아이템
+    localStorage.removeItem("gameStartTime"); // 게임 시작 시간
+    localStorage.removeItem("playTime"); // 플레이 타임
+    
+    console.log("게임 데이터 초기화 완료");
+  }, []);
+
   const handleKakaoLogin = () => {
-    console.log("카카오 로그인 (로컬) → /start 이동");
+    console.log("카카오 로그인 (로컬) → /game 이동");
     router.push("/game");
   };
 

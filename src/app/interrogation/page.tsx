@@ -67,8 +67,8 @@ export default function InterrogationPage() {
   const [memoText, setMemoText] = useState("");
   const [selectedCharacter, setSelectedCharacter] = useState("라이언");
 
-  // 인벤토리 관련 상태
-  const [inventory] = useState<Item[]>(ITEMS); // 임시: 모든 아이템 소지
+  // 인벤토리 관련 상태 - localStorage에서 획득한 아이템만 불러오기
+  const [inventory, setInventory] = useState<Item[]>([]);
   const [showInventory, setShowInventory] = useState(false);
   const [showItemDetailModal, setShowItemDetailModal] = useState(false);
   const [currentItem, setCurrentItem] = useState<Item | null>(null);
@@ -77,6 +77,12 @@ export default function InterrogationPage() {
     const character = searchParams.get("character");
     if (character && CHARACTER_BUSTS[character]) {
       setSelectedCharacter(character);
+    }
+
+    // localStorage에서 획득한 아이템 불러오기
+    const savedItems = localStorage.getItem("collectedItems");
+    if (savedItems) {
+      setInventory(JSON.parse(savedItems));
     }
   }, [searchParams]);
 
