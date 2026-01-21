@@ -30,28 +30,28 @@ const ITEMS: Item[] = [
   {
     id: "fur",
     name: "갈색 털뭉치",
-    description: "누군가가 떨어뜨린\n갈색 털뭉치이다.",
+    description: "현장 바닥에서 발견된\n갈색 털뭉치",
     icon: "/character/아이템_갈색털뭉치.svg",
     miniIcon: "/character/아이템_갈색털뭉치_미니.svg",
   },
   {
     id: "card",
     name: "보안카드",
-    description: "누군가가 떨어뜨린\n보안카드이다.",
+    description: "사무실에 떨어져 있던\n직원가의 출입 보안카드",
     icon: "/character/아이템_보안카드.svg",
     miniIcon: "/character/아이템_보안카드_미니.svg",
   },
   {
     id: "chocolate",
     name: "초콜릿 봉지",
-    description: "누군가가 떨어뜨린\n초콜릿 봉지이다.",
+    description: "발품 뜯려 있는\n초콜릿 봉지",
     icon: "/character/아이템_초콜릿봉지.svg",
     miniIcon: "/character/아이템_초콜릿봉지_미니.svg",
   },
   {
     id: "coffee",
     name: "커피 자국",
-    description: "누군가가 흘린\n커피 자국이다.",
+    description: "누군가 흘렸게 쓴은 듯한\n커피 자국",
     icon: "/character/아이템_커피자국.svg",
     miniIcon: "/character/아이템_커피자국_미니.svg",
   },
@@ -78,12 +78,29 @@ export default function StartPage() {
       setShowTutorialModal(true);
     }, 1000);
 
+    let isInitializing = false; // 중복 실행 방지
+
     const initializeGame = async () => {
+      // 이미 초기화 중이면 중단
+      if (isInitializing) {
+        console.log("이미 초기화 중입니다. 중복 실행 방지.");
+        return;
+      }
+
       let sessionId = getSessionId();
 
       // 세션이 없으면 새로 생성
       if (!sessionId) {
+        // 세션 생성 중 플래그 체크
+        const isCreating = sessionStorage.getItem('sessionCreating');
+        if (isCreating === 'true') {
+          console.log("세션 생성 중입니다. 대기...");
+          return;
+        }
+
         console.log("세션이 없습니다. 새 게임 세션을 생성합니다...");
+        isInitializing = true;
+        sessionStorage.setItem('sessionCreating', 'true');
         
         try {
           const session = await createGameSession();
@@ -103,6 +120,9 @@ export default function StartPage() {
             router.push("/login");
           }
           return;
+        } finally {
+          sessionStorage.removeItem('sessionCreating');
+          isInitializing = false;
         }
       }
 
@@ -472,6 +492,7 @@ export default function StartPage() {
                       alt="bag icon"
                       width={40}
                       height={40}
+                      
                     />
                   </div>
                   <p className="text-white text-m leading-relaxed flex-1">
