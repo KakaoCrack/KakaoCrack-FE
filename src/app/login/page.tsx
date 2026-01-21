@@ -4,18 +4,18 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import backgroundImage from "@/assets/images/로그인 배경화면.png";
-import { clearAuthData, getKakaoLoginUrl } from "@/lib/api/auth";
+import { clearAllData, getKakaoLoginUrl } from "@/lib/api/auth";
 
 export default function LoginPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
-  // 로그인 페이지 진입 시 게임 데이터 초기화
+  // 로그인 페이지 진입 시 모든 데이터 초기화
   useEffect(() => {
-    // 모든 인증 및 게임 데이터 초기화
-    clearAuthData();
+    // 모든 인증 및 게임 데이터 초기화 (완전히 새로 시작)
+    clearAllData();
     
-    console.log("게임 데이터 초기화 완료");
+    console.log("모든 데이터 초기화 완료");
   }, []);
 
   const handleKakaoLogin = () => {

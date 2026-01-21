@@ -40,7 +40,14 @@ export async function createGameSession(): Promise<GameSession> {
     throw new Error(`Failed to create session: ${response.status}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  
+  // 백엔드 응답 형식: { success, data, message }
+  if (result.success && result.data) {
+    return result.data;
+  }
+  
+  throw new Error(result.message || 'Failed to create session');
 }
 
 // localStorage에 세션 정보 저장

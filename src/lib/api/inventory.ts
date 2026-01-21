@@ -40,7 +40,8 @@ export async function getItemsMaster(): Promise<Item[]> {
     throw new Error(`Failed to fetch items master: ${response.status}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  return result.success && result.data ? result.data : result;
 }
 
 // 세션 인벤토리 조회
@@ -63,7 +64,8 @@ export async function getSessionInventory(sessionId: string): Promise<Item[]> {
     throw new Error(`Failed to fetch inventory: ${response.status}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  return result.success && result.data ? result.data : result;
 }
 
 // 바닥 아이템 클릭 획득
@@ -96,23 +98,24 @@ export async function acquireItem(
     throw new Error(`Failed to acquire item: ${response.status}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  return result.success && result.data ? result.data : result;
 }
 
 // 아이템 ID 매핑 (프론트엔드 ID -> 백엔드 ID)
 export const ITEM_ID_MAP: Record<string, string> = {
   fur: 'ITEM_01', // 갈색 털뭉치
-  card: 'ITEM_02', // 보안카드
-  chocolate: 'ITEM_03', // 초콜릿 봉지
-  coffee: 'ITEM_04', // 커피 자국
+  coffee: 'ITEM_02', // 커피 자국
+  card: 'ITEM_03', // 보안카드
+  chocolate: 'ITEM_04', // 초콜릿 봉지
 };
 
 // 백엔드 ID -> 프론트엔드 ID
 export const ITEM_ID_REVERSE_MAP: Record<string, string> = {
   ITEM_01: 'fur',
-  ITEM_02: 'card',
-  ITEM_03: 'chocolate',
-  ITEM_04: 'coffee',
+  ITEM_02: 'coffee',
+  ITEM_03: 'card',
+  ITEM_04: 'chocolate',
 };
 
 // NPC 이름 매핑 (프론트엔드 -> 백엔드)

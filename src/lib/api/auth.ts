@@ -46,7 +46,15 @@ export async function kakaoCallback(code: string): Promise<KakaoCallbackResponse
     throw new Error(`Login failed: ${response.status}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  
+  // 백엔드 응답 형식: { success, data, message }
+  if (result.success && result.data) {
+    return result.data;
+  }
+  
+  // 또는 직접 반환 (하위 호환성)
+  return result;
 }
 
 // 토큰 재발급
@@ -69,7 +77,8 @@ export async function refreshAccessToken(refreshToken: string): Promise<{ access
     throw new Error(`Token refresh failed: ${response.status}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  return result.success && result.data ? result.data : result;
 }
 
 // localStorage에 인증 정보 저장
@@ -80,8 +89,16 @@ export function saveAuthData(user: User, tokens: Tokens) {
   localStorage.setItem('userNickname', user.nickname);
 }
 
-// localStorage에서 인증 정보 삭제 (로그아웃)
+// localStorage에서 인증 정보만 삭제 (로그아웃, 게임 데이터는 유지)
 export function clearAuthData() {
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('userId');
+  localStorage.removeItem('userNickname');
+}
+
+// localStorage에서 모든 데이터 삭제 (완전히 새로 시작)
+export function clearAllData() {
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('userId');
