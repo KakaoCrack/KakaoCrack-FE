@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
+import axios from "axios";
+
 import backgroundImage from "@/assets/images/취조 페이지 배경.png";
 import characterDialogBg from "@/assets/images/캐릭터 대사 배경.png";
 import userChatBg from "@/assets/images/사용자 채팅칸 배경.png";
@@ -11,6 +13,7 @@ import inventoryBg from "@/assets/images/인벤토리 배경.png";
 import {
   getSessionInventory,
   ITEM_ID_REVERSE_MAP,
+  ITEM_ID_MAP,
 } from "@/lib/api/inventory";
 
 type Item = {
@@ -21,36 +24,46 @@ type Item = {
   miniIcon: string;
 };
 
+type NpcStatus = {
+  suspicionScore: number;
+  affectionScore: number;
+  isConfessed: boolean;
+};
+
+type ChatContext = {
+  summary: string;
+  recentLogs: string[];
+};
+
 const ITEMS: Item[] = [
   {
     id: "fur",
     name: "갈색 털뭉치",
-    description: "현장 바닥에서 발견된\n갈색 털뭉치",
+    description: "누군가가 떨어뜨린\n갈색 털뭉치이다.",
     icon: "/character/아이템_갈색털뭉치.svg",
     miniIcon: "/character/아이템_갈색털뭉치_미니.svg",
   },
   {
     id: "card",
     name: "보안카드",
-    description: "사무실에 떨어져 있던\n직원가의 출입 보안카드",
+    description: "누군가가 떨어뜨린\n보안카드이다.",
     icon: "/character/아이템_보안카드.svg",
     miniIcon: "/character/아이템_보안카드_미니.svg",
   },
   {
     id: "chocolate",
     name: "초콜릿 봉지",
-    description: "발품 뜯려 있는\n초콜릿 봉지",
+    description: "누군가가 떨어뜨린\n초콜릿 봉지이다.",
     icon: "/character/아이템_초콜릿봉지.svg",
     miniIcon: "/character/아이템_초콜릿봉지_미니.svg",
   },
   {
     id: "coffee",
     name: "커피 자국",
-    description: "누군가 흘렸게 쓴은 듯한\n커피 자국",
+    description: "누군가가 흘린\n커피 자국이다.",
     icon: "/character/아이템_커피자국.svg",
     miniIcon: "/character/아이템_커피자국_미니.svg",
   },
-  // 커피자국은 서버 API 연동 시 어피치 호감도 조건 충족으로 자동 지급
 ];
 
 const CHARACTER_BUSTS: Record<string, string> = {
@@ -64,15 +77,31 @@ export default function InterrogationPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // 엔딩 모달 표시 여부 상태
-  const [showEndingModal, setShowEndingModal] = useState(false);
+  // 1. NPC 상태
+  const [npcStatus, setNpcStatus] = useState<NpcStatus>({
+    suspicionScore: 0,
+    affectionScore: 0,
+    isConfessed: false,
+  });
 
+  // 2. 대화 맥락
+  const [chatContext, setChatContext] = useState<ChatContext>({
+    summary: "",
+    recentLogs: [],
+  });
+
+  // 3. NPC 답변
+  const [npcReply, setNpcReply] = useState("");
+  // const BASE_URL = process.env.NEXT_PUBLIC_API_URL; // (여기서는 직접 사용하므로 주석 처리하거나 삭제)
+
+  // ------------------------------------------------
+
+  const [showEndingModal, setShowEndingModal] = useState(false);
   const [showMemoModal, setShowMemoModal] = useState(false);
   const [userInput, setUserInput] = useState("");
   const [memoText, setMemoText] = useState("");
   const [selectedCharacter, setSelectedCharacter] = useState("라이언");
 
-  // 인벤토리 관련 상태 - localStorage에서 획득한 아이템만 불러오기
   const [inventory, setInventory] = useState<Item[]>([]);
   const [showInventory, setShowInventory] = useState(false);
   const [showItemDetailModal, setShowItemDetailModal] = useState(false);
@@ -82,14 +111,23 @@ export default function InterrogationPage() {
     const character = searchParams.get("character");
     if (character && CHARACTER_BUSTS[character]) {
       setSelectedCharacter(character);
+      setNpcReply("");
+      setNpcStatus({
+        suspicionScore: 0,
+        affectionScore: 0,
+        isConfessed: false,
+      });
+      setChatContext({
+        summary: "",
+        recentLogs: [],
+      });
+      setUserInput("");
     }
 
-    // 세션 인벤토리 불러오기
     const loadInventory = async () => {
       const sessionId = localStorage.getItem("sessionId");
       if (!sessionId) {
         console.log("세션 ID가 없습니다. localStorage에서 불러옵니다.");
-        // 세션 ID가 없으면 localStorage에서 불러오기 (폴백)
         const savedItems = localStorage.getItem("collectedItems");
         if (savedItems) {
           setInventory(JSON.parse(savedItems));
@@ -99,8 +137,6 @@ export default function InterrogationPage() {
 
       try {
         const items = await getSessionInventory(sessionId);
-        
-        // 백엔드 아이템을 프론트엔드 형식으로 변환
         const frontendItems: Item[] = items
           .map((item) => {
             const frontendId = ITEM_ID_REVERSE_MAP[item.itemId];
@@ -110,12 +146,9 @@ export default function InterrogationPage() {
           .filter((item): item is Item => item !== null);
 
         setInventory(frontendItems);
-
-        // localStorage에도 저장 (동기화)
         localStorage.setItem("collectedItems", JSON.stringify(frontendItems));
       } catch (error) {
         console.error("인벤토리 로드 실패:", error);
-        // 에러 시 localStorage에서 불러오기 (폴백)
         const savedItems = localStorage.getItem("collectedItems");
         if (savedItems) {
           setInventory(JSON.parse(savedItems));
@@ -131,20 +164,99 @@ export default function InterrogationPage() {
     router.push("/characterselect");
   };
 
-  const handleSendMessage = () => {
+  // --- AI 서버 통신 로직 구현 ---
+  // --- AI 서버 통신 로직 구현 ---
+  const handleSendMessage = async () => {
     if (!userInput.trim()) return;
-    console.log("전송:", userInput);
 
-    // 테스트용 코드: "너 범인이지?" 입력 시 모달 출력
-    if (userInput == "너 범인이지?") {
-      setShowEndingModal(true);
-      setUserInput("");
+    const messageContent = userInput;
+    const targetName = selectedCharacter;
+
+    // 1. localStorage에서 전체 아이템 데이터 가져오기
+    const savedItems = localStorage.getItem("collectedItems");
+    const inventoryData = savedItems ? JSON.parse(savedItems) : [];
+
+    // 백엔드 스키마에 맞춰 변환
+    const backendInventory = inventoryData.map((item: any) => ({
+      itemId: ITEM_ID_MAP[item.id] || item.id,
+      name: item.name,
+      obtainedAt: new Date().toISOString(),
+    }));
+
+    console.log("전송할 인벤토리 데이터:", backendInventory);
+
+    setUserInput("");
+
+    try {
+      const requestBody = {
+        npcName: targetName,
+        userMessage: messageContent,
+        sessionId: localStorage.getItem("sessionId") || "temp_session",
+        userInventory: backendInventory,
+        status: npcStatus,
+        context: chatContext,
+      };
+
+      const accessToken = localStorage.getItem("accessToken");
+
+      const response = await axios.post(
+        `http://13.62.102.106:8000/api/response`,
+        requestBody,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      const resData = response.data;
+      console.log("AI 서버 응답 원본:", resData); // 디버깅용 로그
+
+      // ✅ [수정됨] 응답 데이터 처리 로직 개선
+
+      // 1. NPC 답변 연결 (npcResponse)
+      if (resData.npcResponse) {
+        setNpcReply(resData.npcResponse);
+      } else if (resData.message) {
+        setNpcReply(resData.message);
+      }
+
+      // 2. 게이지 상태 업데이트 (nextChanges)
+      // 서버에서 온 값(suspicion, affection)을 프론트 상태(suspicionScore, affectionScore)에 반영
+      if (resData.nextChanges) {
+        setNpcStatus((prev) => ({
+          ...prev,
+          suspicionScore:
+            resData.nextChanges.suspicion !== undefined
+              ? resData.nextChanges.suspicion
+              : prev.suspicionScore,
+          affectionScore:
+            resData.nextChanges.affection !== undefined
+              ? resData.nextChanges.affection
+              : prev.affectionScore,
+        }));
+      }
+
+      // 3. 자백 여부 체크 (isConfessed)
+      if (resData.isConfessed === true) {
+        setShowEndingModal(true);
+        // 상태도 같이 업데이트
+        setNpcStatus((prev) => ({ ...prev, isConfessed: true }));
+      }
+
+      // 4. 대화 맥락 업데이트
+      if (resData.context) {
+        setChatContext(resData.context);
+      }
+    } catch (error) {
+      console.error("API 요청 실패:", error);
+      setNpcReply("...(서버와의 연결이 불안정합니다)...");
     }
-  }; // <--- 여기가 닫혀야 화면이 나옵니다.
+  };
+  // -------------------------------------------------------
 
-  // [추가됨] 엔딩 모달에서 NEXT 버튼 클릭 시 실행
   const handleEndingNext = () => {
-    // 성공 결과 페이지로 이동 (쿼리 파라미터는 필요에 따라 조정)
     router.push("/ending_arrest");
   };
 
@@ -155,7 +267,7 @@ export default function InterrogationPage() {
 
   const handleCloseMemo = () => {
     setShowMemoModal(false);
-    setMemoText(""); // 닫으면 내용 버리기
+    setMemoText("");
   };
 
   const handleItemDetail = (item: Item) => {
@@ -175,8 +287,7 @@ export default function InterrogationPage() {
           priority
         />
 
-        {/* 개발 테스트용 버튼 (화면 왼쪽 상단 구석에 배치) */}
-        {/* 나중에 실제 게임 로직이 완성되면 삭제 */}
+        {/* 테스트 버튼 */}
         <button
           onClick={() => setShowEndingModal(true)}
           className="absolute top-16 left-4 z-50 bg-red-500/50 text-white text-xs px-2 py-1 rounded hover:bg-red-500"
@@ -184,7 +295,7 @@ export default function InterrogationPage() {
           (TEST) 자백 성공
         </button>
 
-        {/* 상단 아이콘: 왼쪽(나가기) + 오른쪽(메모/인벤) */}
+        {/* 상단 아이콘들 */}
         <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 pt-4">
           <button
             onClick={handleLogout}
@@ -225,14 +336,14 @@ export default function InterrogationPage() {
           </div>
         </div>
 
-        {/* =========================
-          완전 분리(absolute) 레이아웃
-           ========================= */}
-
-        {/* 게이지 */}
+        {/* ---  게이지 바 UI --- */}
         <div className="absolute left-1/2 top-[220px] -translate-x-1/2 z-40 w-[230px] space-y-3">
+          {/* 호감도 */}
           <div className="relative h-[16px] rounded-full bg-gray-300/70 overflow-visible">
-            <div className="absolute left-0 top-0 h-full w-[60%] rounded-full bg-gradient-to-r from-pink-400 to-pink-500" />
+            <div
+              className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-pink-400 to-pink-500 transition-all duration-500 ease-out"
+              style={{ width: `${npcStatus.affectionScore}%` }}
+            />
             <div className="absolute left-[60%] top-1/2 -translate-x-1/2 -translate-y-1/2">
               <Image
                 src="/icon/heart_icon.svg"
@@ -243,8 +354,12 @@ export default function InterrogationPage() {
             </div>
           </div>
 
+          {/* 의심도 */}
           <div className="relative h-[16px] rounded-full bg-gray-300/70 overflow-visible">
-            <div className="absolute left-0 top-0 h-full w-[50%] rounded-full bg-gradient-to-r from-blue-400 to-blue-500" />
+            <div
+              className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-500 ease-out"
+              style={{ width: `${npcStatus.suspicionScore}%` }}
+            />
             <div className="absolute left-[50%] top-1/2 -translate-x-1/2 -translate-y-1/2">
               <Image
                 src="/icon/cloud_icon.svg"
@@ -256,7 +371,7 @@ export default function InterrogationPage() {
           </div>
         </div>
 
-        {/* 캐릭터 */}
+        {/* 캐릭터 흉상 */}
         <div className="absolute left-1/2 top-[290px] -translate-x-1/2 z-50 pointer-events-none w-[250px] h-[250px] flex items-center justify-center">
           <div className="relative w-full h-full">
             <Image
@@ -269,7 +384,7 @@ export default function InterrogationPage() {
           </div>
         </div>
 
-        {/* 캐릭터 말 박스 */}
+        {/* 캐릭터 대화창 */}
         <div className="absolute left-1/2 top-[540px] -translate-x-1/2 z-30 w-[400px] h-[170px] rounded-2xl overflow-hidden border-[4px] border-[#864313] shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
           <Image
             src={characterDialogBg}
@@ -279,8 +394,8 @@ export default function InterrogationPage() {
             priority
           />
           <div className="absolute inset-0 flex items-center justify-center px-8 py-6">
-            <p className="text-white text-center text-base leading-relaxed">
-              캐릭터 말
+            <p className="text-white text-center text-base leading-relaxed whitespace-pre-wrap">
+              {npcReply}
             </p>
           </div>
         </div>
@@ -319,16 +434,10 @@ export default function InterrogationPage() {
           </div>
         </div>
 
-        {/* =========================
-          오버레이들
-           ========================= */}
-
-        {/* 엔딩 안내 모달 (디자인 시안 반영) */}
+        {/* 엔딩 모달 */}
         {showEndingModal && (
           <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/80 animate-fadeIn">
-            {/* 모달 컨테이너 */}
             <div className="relative w-[360px] bg-[#1a1a1a] border-2 border-[#D4AF37] rounded-lg p-8 flex flex-col items-center shadow-[0_0_20px_rgba(212,175,55,0.3)] text-center">
-              {/* 텍스트 내용 */}
               <div className="space-y-4 mb-8">
                 <p className="text-[#ffffff] text-lg leading-relaxed whitespace-pre-line font-bold">
                   사건의 범인은{" "}
@@ -348,8 +457,6 @@ export default function InterrogationPage() {
                   회사의 평화가 찾아왔다...
                 </p>
               </div>
-
-              {/* NEXT 버튼 */}
               <button
                 onClick={handleEndingNext}
                 className="px-10 py-2 border border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black transition-colors font-bold rounded shadow-[0_0_10px_rgba(212,175,55,0.2)]"
@@ -360,7 +467,7 @@ export default function InterrogationPage() {
           </div>
         )}
 
-        {/* 인벤토리 패널 (1번만) */}
+        {/* 인벤토리 모달 */}
         {showInventory && (
           <div className="absolute top-[86px] right-4 z-50 animate-fadeIn">
             <div className="relative w-[150px] h-[240px] rounded-2xl overflow-hidden border-[5px] border-[#463017] shadow-2xl">
@@ -374,7 +481,6 @@ export default function InterrogationPage() {
               <div className="absolute inset-0 flex flex-col">
                 {ITEMS.map((item, idx) => {
                   const inventoryItem = inventory.find((i) => i.id === item.id);
-
                   return (
                     <div
                       key={item.id}
@@ -396,7 +502,6 @@ export default function InterrogationPage() {
                           />
                         )}
                       </div>
-
                       <button
                         onClick={() =>
                           inventoryItem && handleItemDetail(inventoryItem)
@@ -454,8 +559,6 @@ export default function InterrogationPage() {
                 priority
                 className="object-contain pointer-events-none"
               />
-
-              {/* X 닫기 버튼: 무조건 최상단 + 클릭 가능 */}
               <button
                 type="button"
                 onClick={handleCloseMemo}
@@ -469,20 +572,16 @@ export default function InterrogationPage() {
                   className="pointer-events-none"
                 />
               </button>
-
-              {/* 내용 */}
               <div className="absolute inset-0 px-10 pt-20 pb-10 flex flex-col z-40">
                 <h3 className="text-2xl text-gray-800 text-center mb-4">
                   사용자 메모
                 </h3>
-
                 <textarea
                   value={memoText}
                   onChange={(e) => setMemoText(e.target.value)}
                   placeholder="메모를 입력하세요..."
                   className="flex-1 bg-transparent text-gray-800 text-base resize-none outline-none placeholder-gray-500 p-2"
                 />
-
                 <button
                   onClick={handleSaveMemo}
                   className="mt-4 mx-auto px-10 py-2 bg-[#D4AF37] hover:bg-[#E2BF25] text-black font-semibold rounded-lg transition-colors"
