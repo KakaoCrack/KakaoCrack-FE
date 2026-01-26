@@ -163,6 +163,12 @@ export default function InterrogationPage() {
       }
     };
 
+    // localStorage에서 저장된 메모 불러오기
+    const savedMemo = localStorage.getItem("userMemo");
+    if (savedMemo) {
+      setMemoText(savedMemo);
+    }
+
     loadInventory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -284,12 +290,18 @@ export default function InterrogationPage() {
 
   const handleSaveMemo = () => {
     console.log("메모 저장:", memoText);
+    // localStorage에 메모 저장
+    localStorage.setItem("userMemo", memoText);
     setShowMemoModal(false);
   };
 
   const handleCloseMemo = () => {
     setShowMemoModal(false);
-    setMemoText("");
+    // 닫을 때 저장된 내용을 다시 불러와서 변경사항 버리기
+    const savedMemo = localStorage.getItem("userMemo");
+    if (savedMemo) {
+      setMemoText(savedMemo);
+    }
   };
 
   const handleItemDetail = (item: Item) => {
@@ -610,8 +622,8 @@ export default function InterrogationPage() {
                 <Image
                   src="/icon/cancel_icon.svg"
                   alt="닫기"
-                  width={25}
-                  height={25}
+                  width={21}
+                  height={21}
                   className="pointer-events-none"
                 />
               </button>

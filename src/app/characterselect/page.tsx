@@ -11,10 +11,7 @@ import nameBg from "@/assets/images/캐릭터 선택 배경 3 (캐릭터 이름)
 import frameBg from "@/assets/images/캐릭터 액자 배경.png";
 import inventoryBg from "@/assets/images/인벤토리 배경.png";
 import userMemoBg from "@/assets/images/사용자 메모.png";
-import {
-  getSessionInventory,
-  ITEM_ID_REVERSE_MAP,
-} from "@/lib/api/inventory";
+import { getSessionInventory, ITEM_ID_REVERSE_MAP } from "@/lib/api/inventory";
 
 // 아이템 타입 정의
 type Item = {
@@ -73,7 +70,7 @@ export default function CharacterSelectPage() {
   // 오류 모달 상태
   const [showErrorModal, setShowErrorModal] = useState(false);
 
-  // 세션 인벤토리 불러오기
+  // 세션 인벤토리 및 메모 불러오기
   useEffect(() => {
     const loadInventory = async () => {
       const sessionId = localStorage.getItem("sessionId");
@@ -89,7 +86,7 @@ export default function CharacterSelectPage() {
 
       try {
         const items = await getSessionInventory(sessionId);
-        
+
         // 백엔드 아이템을 프론트엔드 형식으로 변환
         const frontendItems: Item[] = items
           .map((item) => {
@@ -113,6 +110,12 @@ export default function CharacterSelectPage() {
       }
     };
 
+    // localStorage에서 저장된 메모 불러오기
+    const savedMemo = localStorage.getItem("userMemo");
+    if (savedMemo) {
+      setMemoText(savedMemo);
+    }
+
     loadInventory();
   }, []);
 
@@ -127,12 +130,18 @@ export default function CharacterSelectPage() {
 
   const handleSaveMemo = () => {
     console.log("메모 저장:", memoText);
+    // localStorage에 메모 저장
+    localStorage.setItem("userMemo", memoText);
     setShowMemoModal(false);
   };
 
   const handleCloseMemo = () => {
     setShowMemoModal(false);
-    setMemoText(""); // 닫으면 내용 버리기
+    // 닫을 때 저장된 내용을 다시 불러와서 변경사항 버리기
+    const savedMemo = localStorage.getItem("userMemo");
+    if (savedMemo) {
+      setMemoText(savedMemo);
+    }
   };
 
   // 인벤토리에서 아이템 상세 보기 함수
@@ -146,7 +155,7 @@ export default function CharacterSelectPage() {
     if (selectedId) {
       // 선택된 캐릭터의 이름 찾기
       const selectedCharacter = CHARACTERS.find(
-        (char) => char.id === selectedId
+        (char) => char.id === selectedId,
       );
       if (selectedCharacter) {
         console.log("취조 시작:", selectedCharacter.name);
@@ -261,8 +270,8 @@ export default function CharacterSelectPage() {
                 <Image
                   src="/icon/cancel_icon.svg"
                   alt="닫기"
-                  width={25}
-                  height={25}
+                  width={21}
+                  height={21}
                   className="pointer-events-none"
                 />
               </button>
