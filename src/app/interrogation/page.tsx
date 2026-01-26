@@ -102,6 +102,10 @@ export default function InterrogationPage() {
 
   const [showEndingModal, setShowEndingModal] = useState(false);
   const [showMemoModal, setShowMemoModal] = useState(false);
+
+  const [showItemAcquiredModal, setShowItemAcquiredModal] = useState(false);
+  const [newlyAcquiredItems, setNewlyAcquiredItems] = useState<Item[]>([]);
+
   const [userInput, setUserInput] = useState("");
   const [memoText, setMemoText] = useState("");
   const [selectedCharacter, setSelectedCharacter] = useState("RYAN");
@@ -112,24 +116,54 @@ export default function InterrogationPage() {
   const [currentItem, setCurrentItem] = useState<Item | null>(null);
 
   useEffect(() => {
-    const paramCharacter = searchParams.get("character"); // URL 값 가져오기 (예: "무지" or "MUZI")
+    // 1. URL 파라미터로 현재 캐릭터 확인
+    const paramCharacter = searchParams.get("character");
+    let currentTarget = "RYAN"; // 기본값
+
+    // 한글 이름 -> 영어 ID 변환 로직 적용
     if (paramCharacter) {
-      // Case 1: URL이 영어 ID로 온 경우 (정석)
       if (CHARACTER_BUSTS[paramCharacter]) {
-        setSelectedCharacter(paramCharacter);
+        currentTarget = paramCharacter;
+      } else if (REVERSE_NAME_MAP[paramCharacter]) {
+        currentTarget = REVERSE_NAME_MAP[paramCharacter];
       }
-      // Case 2: URL이 한글 이름으로 온 경우 (변환 필요)
-      else if (REVERSE_NAME_MAP[paramCharacter]) {
-        setSelectedCharacter(REVERSE_NAME_MAP[paramCharacter]); // "MUZI"로 변환해서 저장
-      }
-      setNpcReply("");
+      setSelectedCharacter(currentTarget);
+    }
+
+    // =========================================================
+    // [핵심 수정] 초기화 대신 -> LocalStorage에서 불러오기
+    // =========================================================
+
+    // (1) 남은 질문 횟수 복구
+    const savedQuestions = localStorage.getItem("remainingQuestions");
+    if (savedQuestions) {
+      setRemainingQuestions(parseInt(savedQuestions, 10));
+    }
+    // 없으면 기본값(20) 유지
+
+    // (2) 해당 캐릭터의 상태(호감도/의심도) 복구
+    const savedStatus = localStorage.getItem(`npcStatus_${currentTarget}`);
+    if (savedStatus) {
+      setNpcStatus(JSON.parse(savedStatus));
+    } else {
+      // 저장된 기록이 없으면 0점 초기화
       setNpcStatus({
         suspicionScore: 0,
         affectionScore: 0,
         isConfessed: false,
       });
-      setUserInput("");
     }
+
+    // (3) 마지막 대사 복구 (말풍선이 비어있지 않게)
+    const savedReply = localStorage.getItem(`lastReply_${currentTarget}`);
+    if (savedReply) {
+      setNpcReply(savedReply);
+    } else {
+      setNpcReply("");
+    }
+
+    // 입력창은 항상 비우기
+    setUserInput("");
 
     const loadInventory = async () => {
       const sessionId = localStorage.getItem("sessionId");
@@ -208,11 +242,18 @@ export default function InterrogationPage() {
 
       if (resData.reply) {
         setNpcReply(resData.reply);
+        // [추가] 마지막 대사 저장 (선택 사항: 다시 들어왔을 때 마지막 말풍선 보여주기 위함)
+        localStorage.setItem(`lastReply_${targetName}`, resData.reply);
       }
 
       // [추가] 남은 질문 횟수 업데이트
       if (typeof resData.remainingQuestions === "number") {
         setRemainingQuestions(resData.remainingQuestions);
+
+        localStorage.setItem(
+          "remainingQuestions",
+          resData.remainingQuestions.toString(),
+        );
 
         // 0회가 되면 검거 실패
         if (resData.remainingQuestions <= 0) {
@@ -225,29 +266,31 @@ export default function InterrogationPage() {
 
       // [변경 2] 게이지 업데이트 -> 백엔드 DTO 구조인 'state' 사용
       if (resData.state) {
-        setNpcStatus({
+        const newState = {
           suspicionScore: resData.state.suspicionScore,
           affectionScore: resData.state.affectionScore,
           isConfessed: resData.state.isConfessed,
-        });
+        };
+
+        setNpcStatus(newState);
+        // 💾 [저장] 캐릭터별(targetName) 상태 기록 (예: npcStatus_RYAN)
+        localStorage.setItem(
+          `npcStatus_${targetName}`,
+          JSON.stringify(newState),
+        );
 
         if (resData.state.isConfessed) {
           setShowEndingModal(true);
         }
       }
 
+      // [수정] 아이템 획득 로직 - 모달 띄우기
       if (resData.rewards && resData.rewards.length > 0) {
         const newItems: Item[] = [];
 
         resData.rewards.forEach((reward: { itemId: string }) => {
-          // 3-1. 백엔드 ID (예: "ITEM_02") -> 프론트 ID (예: "coffee") 변환
-          // (상단에 import된 ITEM_ID_REVERSE_MAP 사용)
           const frontendId = ITEM_ID_REVERSE_MAP[reward.itemId];
-
-          // 3-2. 전체 아이템 목록(ITEMS)에서 해당 아이템 정보(이미지, 설명 등) 찾기
           const itemData = ITEMS.find((i) => i.id === frontendId);
-
-          // 3-3. 중복 확인: 이미 인벤토리에 있는 아이템이면 제외
           const isDuplicate = inventory.some((inv) => inv.id === frontendId);
 
           if (itemData && !isDuplicate) {
@@ -255,22 +298,20 @@ export default function InterrogationPage() {
           }
         });
 
-        // 3-4. 새로 얻은 아이템이 있다면 반영
         if (newItems.length > 0) {
-          // (1) 알림창 띄우기
-          const itemNames = newItems.map((i) => i.name).join(", ");
-          alert(`✨ 단서 획득! [${itemNames}]을(를) 찾았습니다!`);
+          // 1. 획득한 아이템 저장
+          setNewlyAcquiredItems(newItems);
 
-          // (2) 화면(State) 및 로컬스토리지 업데이트
+          // 2. 모달 표시 (alert 제거됨)
+          setShowItemAcquiredModal(true);
+
+          // 3. 인벤토리 및 스토리지 업데이트
           setInventory((prev) => {
             const updatedInventory = [...prev, ...newItems];
-
-            // 새로고침 해도 유지되도록 저장
             localStorage.setItem(
               "collectedItems",
               JSON.stringify(updatedInventory),
             );
-
             return updatedInventory;
           });
         }
@@ -286,6 +327,12 @@ export default function InterrogationPage() {
 
   const handleEndingNext = () => {
     router.push("/ending_arrest");
+  };
+
+  // [추가] 아이템 획득 모달 확인 버튼 핸들러
+  const handleAcquiredModalConfirm = () => {
+    setShowItemAcquiredModal(false);
+    setNewlyAcquiredItems([]);
   };
 
   const handleSaveMemo = () => {
@@ -309,6 +356,24 @@ export default function InterrogationPage() {
     setShowItemDetailModal(true);
   };
 
+  const getCharacterImageSrc = () => {
+    // 1. 현재 캐릭터의 한글 이름 가져오기 (RYAN -> 라이언)
+    const koreanName = CHARACTER_NAMES_KO[selectedCharacter];
+
+    // 2. 감정 상태 판단 (기준점: 50점)
+    let emotion = "기본"; // Default
+
+    // 로직: 의심도가 50 이상이면 '당황', 아니라면 호감도가 50 이상일 때 '호감'
+    if (npcStatus.suspicionScore >= 30) {
+      emotion = "당황";
+    } else if (npcStatus.affectionScore >= 30) {
+      emotion = "호감";
+    }
+
+    // 3. 파일 경로 조합 (예: /character/어피치_당황_흉상.svg)
+    return `/character/${koreanName}_${emotion}_흉상.svg`;
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-black">
       <div className="relative w-[430px] h-[844px] overflow-hidden">
@@ -321,16 +386,12 @@ export default function InterrogationPage() {
           priority
         />
 
-        {/* 테스트 버튼 */}
-        <button
-          onClick={() => setShowEndingModal(true)}
-          className="absolute top-16 left-4 z-50 bg-red-500/50 text-white text-xs px-2 py-1 rounded hover:bg-red-500"
-        >
-          (TEST) 자백 성공
-        </button>
+        {/* [수정 1] 테스트 버튼 삭제됨 */}
 
-        {/* 상단 아이콘들 */}
-        <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 pt-4">
+        {/* 상단 아이콘들 (배치 수정) */}
+        {/* px-4 -> px-3 으로 수정하여 양 끝 간격 줄임 (중앙 공간 확보) */}
+        <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-3 pt-4">
+          {/* 왼쪽: 나가기 버튼 */}
           <button
             onClick={handleLogout}
             className="w-12 h-12 transition-transform hover:scale-110 active:scale-95"
@@ -343,14 +404,17 @@ export default function InterrogationPage() {
             />
           </button>
 
-          {/* [추가] 2. 남은 질문 횟수 표시 (화면 중앙 상단) */}
-          <div className="absolute left-1/3 -translate-x-1/3 top-6 bg-black/50 px-4 py-1 rounded-full border border-[#864313]">
-            <span className="text-[#D4AF37] font-bold text-lg drop-shadow-md">
+          {/* 중앙: 남은 질문 횟수 표시 */}
+          {/* left-1/2 -translate-x-1/2 로 정중앙 배치 유지 */}
+          <div className="absolute left-1/2 -translate-x-1/2 top-6 bg-black/50 px-4 py-1 rounded-full border border-[#864313]">
+            <span className="text-[#D4AF37] font-bold text-lg drop-shadow-md whitespace-nowrap">
               남은 질문 횟수: {remainingQuestions}
             </span>
           </div>
 
-          <div className="flex items-center gap-4">
+          {/* 오른쪽: 메모 & 인벤토리 버튼 */}
+          {/* gap-4 -> gap-2 로 수정하여 오른쪽 아이콘끼리 밀착 (중앙과 겹침 방지) */}
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setShowMemoModal(true)}
               className="w-12 h-12 transition-transform hover:scale-110 active:scale-95"
@@ -424,11 +488,11 @@ export default function InterrogationPage() {
         <div className="absolute left-1/2 top-[290px] -translate-x-1/2 z-50 pointer-events-none w-[250px] h-[250px] flex items-center justify-center">
           <div className="relative w-full h-full">
             <Image
-              src={CHARACTER_BUSTS[selectedCharacter]}
+              src={getCharacterImageSrc()}
               alt={selectedCharacter}
               fill
               priority
-              className="select-none object-contain"
+              className="select-none object-contain transition-opacity duration-300"
             />
           </div>
         </div>
@@ -514,6 +578,46 @@ export default function InterrogationPage() {
               </div>
               <button
                 onClick={handleEndingNext}
+                className="px-10 py-2 border border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black transition-colors font-bold rounded shadow-[0_0_10px_rgba(212,175,55,0.2)]"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* [추가됨] 아이템 획득 모달 (엔딩 모달과 동일 디자인) */}
+        {showItemAcquiredModal && (
+          <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/80 animate-fadeIn">
+            <div className="relative w-[360px] bg-[#1a1a1a] border-2 border-[#D4AF37] rounded-lg p-8 flex flex-col items-center shadow-[0_0_20px_rgba(212,175,55,0.3)] text-center">
+              <div className="space-y-6 mb-8 flex flex-col items-center">
+                <p className="text-[#D4AF37] text-xl font-bold mb-2">
+                  ✨ 단서 획득! ✨
+                </p>
+                {newlyAcquiredItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex flex-col items-center gap-2"
+                  >
+                    <div className="w-20 h-20 relative">
+                      <Image
+                        src={item.icon}
+                        alt={item.name}
+                        fill
+                        className="object-contain"
+                      />
+                    </div>
+                    <p className="text-white text-lg font-bold">
+                      [{item.name}]
+                    </p>
+                    <p className="text-gray-300 text-sm whitespace-pre-wrap">
+                      을(를) 찾았습니다!
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={handleAcquiredModalConfirm}
                 className="px-10 py-2 border border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black transition-colors font-bold rounded shadow-[0_0_10px_rgba(212,175,55,0.2)]"
               >
                 확인
