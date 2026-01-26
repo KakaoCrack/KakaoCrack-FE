@@ -92,21 +92,21 @@ export default function StartPage() {
       // 세션이 없으면 새로 생성
       if (!sessionId) {
         // 세션 생성 중 플래그 체크
-        const isCreating = sessionStorage.getItem('sessionCreating');
-        if (isCreating === 'true') {
+        const isCreating = sessionStorage.getItem("sessionCreating");
+        if (isCreating === "true") {
           console.log("세션 생성 중입니다. 대기...");
           return;
         }
 
         console.log("세션이 없습니다. 새 게임 세션을 생성합니다...");
         isInitializing = true;
-        sessionStorage.setItem('sessionCreating', 'true');
-        
+        sessionStorage.setItem("sessionCreating", "true");
+
         try {
           const session = await createGameSession();
           saveSessionData(session);
           sessionId = session.sessionId.toString();
-          
+
           console.log("✅ 새 게임 세션 생성 완료:", {
             sessionId: session.sessionId,
             remainingQuestions: session.remainingQuestions,
@@ -114,14 +114,14 @@ export default function StartPage() {
           });
         } catch (error) {
           console.error("세션 생성 실패:", error);
-          
-          if (error instanceof Error && error.message.includes('인증')) {
+
+          if (error instanceof Error && error.message.includes("인증")) {
             alert("로그인이 필요합니다.");
             router.push("/login");
           }
           return;
         } finally {
-          sessionStorage.removeItem('sessionCreating');
+          sessionStorage.removeItem("sessionCreating");
           isInitializing = false;
         }
       }
@@ -129,7 +129,7 @@ export default function StartPage() {
       // 세션 인벤토리 불러오기
       try {
         const items = await getSessionInventory(sessionId);
-        
+
         // 백엔드 아이템을 프론트엔드 형식으로 변환
         const frontendItems: Item[] = items
           .map((item) => {
@@ -492,7 +492,6 @@ export default function StartPage() {
                       alt="bag icon"
                       width={40}
                       height={40}
-                      
                     />
                   </div>
                   <p className="text-white text-m leading-relaxed flex-1">
@@ -526,35 +525,45 @@ export default function StartPage() {
                 </p>
 
                 <div className="space-y-3">
-                  {/* 호감도 게이지 */}
+                  {/* 호감도 게이지 (고정값 60%) */}
                   <div className="flex items-center gap-3">
+                    {/* 1. 텍스트 */}
                     <span className="text-white text-m w-16">호감도 :</span>
-                    <div className="flex-1 h-7 bg-gray-600 rounded-full overflow-visible relative">
+
+                    {/* 2. 아이콘 (게이지 바 밖으로 꺼내서 왼쪽 배치) */}
+                    <div className="w-[32px] flex justify-center flex-shrink-0">
+                      <Image
+                        src="/icon/heart_icon.svg"
+                        alt="heart"
+                        width={32}
+                        height={32}
+                      />
+                    </div>
+
+                    {/* 3. 게이지 바 (캡처본의 고정값 w-[60%] 유지) */}
+                    <div className="relative flex-1 h-7 bg-gray-600 rounded-full overflow-hidden">
                       <div className="absolute left-0 top-0 h-full w-[60%] bg-gradient-to-r from-pink-400 to-pink-500 rounded-full" />
-                      <div className="absolute left-[60%] top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                        <Image
-                          src="/icon/heart_icon.svg"
-                          alt="heart"
-                          width={32}
-                          height={32}
-                        />
-                      </div>
                     </div>
                   </div>
 
-                  {/* 의심도 게이지 */}
+                  {/* 의심도 게이지 (고정값 50%) */}
                   <div className="flex items-center gap-3">
+                    {/* 1. 텍스트 */}
                     <span className="text-white text-m w-16">의심도 :</span>
-                    <div className="flex-1 h-7 bg-gray-600 rounded-full overflow-visible relative">
+
+                    {/* 2. 아이콘 (게이지 바 밖으로 꺼내서 왼쪽 배치) */}
+                    <div className="w-[32px] flex justify-center flex-shrink-0">
+                      <Image
+                        src="/icon/cloud_icon.svg"
+                        alt="cloud"
+                        width={32}
+                        height={32}
+                      />
+                    </div>
+
+                    {/* 3. 게이지 바 (캡처본의 고정값 w-[50%] 유지) */}
+                    <div className="relative flex-1 h-7 bg-gray-600 rounded-full overflow-hidden">
                       <div className="absolute left-0 top-0 h-full w-[50%] bg-gradient-to-r from-blue-400 to-blue-500 rounded-full" />
-                      <div className="absolute left-[50%] top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-                        <Image
-                          src="/icon/cloud_icon.svg"
-                          alt="cloud"
-                          width={32}
-                          height={32}
-                        />
-                      </div>
                     </div>
                   </div>
                 </div>

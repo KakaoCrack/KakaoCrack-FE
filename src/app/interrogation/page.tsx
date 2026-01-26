@@ -10,11 +10,7 @@ import characterDialogBg from "@/assets/images/캐릭터 대사 배경.png";
 import userChatBg from "@/assets/images/사용자 채팅칸 배경.png";
 import userMemoBg from "@/assets/images/사용자 메모.png";
 import inventoryBg from "@/assets/images/인벤토리 배경.png";
-import {
-  getSessionInventory,
-  ITEM_ID_REVERSE_MAP,
-  ITEM_ID_MAP,
-} from "@/lib/api/inventory";
+import { getSessionInventory, ITEM_ID_REVERSE_MAP } from "@/lib/api/inventory";
 
 type Item = {
   id: string;
@@ -28,11 +24,6 @@ type NpcStatus = {
   suspicionScore: number;
   affectionScore: number;
   isConfessed: boolean;
-};
-
-type ChatContext = {
-  summary: string;
-  recentLogs: string[];
 };
 
 const ITEMS: Item[] = [
@@ -67,15 +58,35 @@ const ITEMS: Item[] = [
 ];
 
 const CHARACTER_BUSTS: Record<string, string> = {
-  라이언: "/character/라이언_기본_흉상.svg",
-  무지: "/character/무지_기본_흉상.svg",
-  어피치: "/character/어피치_기본_흉상.svg",
-  프로도: "/character/프로도_기본_흉상.svg",
+  RYAN: "/character/라이언_기본_흉상.svg",
+  MUZI: "/character/무지_기본_흉상.svg",
+  APEACH: "/character/어피치_기본_흉상.svg",
+  FRODO: "/character/프로도_기본_흉상.svg",
 };
+
+// [추가] URL로 한글이 들어올 경우를 대비한 역방향 매핑
+const REVERSE_NAME_MAP: Record<string, string> = {
+  라이언: "RYAN",
+  무지: "MUZI",
+  어피치: "APEACH",
+  프로도: "FRODO",
+};
+
+const CHARACTER_NAMES_KO: Record<string, string> = {
+  RYAN: "라이언",
+  MUZI: "무지",
+  APEACH: "어피치",
+  FRODO: "프로도",
+};
+
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 export default function InterrogationPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // [로딩 상태 추가 권장]
+  const [isSending, setIsSending] = useState(false);
+  const [remainingQuestions, setRemainingQuestions] = useState(20);
 
   // 1. NPC 상태
   const [npcStatus, setNpcStatus] = useState<NpcStatus>({
@@ -84,15 +95,8 @@ export default function InterrogationPage() {
     isConfessed: false,
   });
 
-  // 2. 대화 맥락
-  const [chatContext, setChatContext] = useState<ChatContext>({
-    summary: "",
-    recentLogs: [],
-  });
-
   // 3. NPC 답변
   const [npcReply, setNpcReply] = useState("");
-  // const BASE_URL = process.env.NEXT_PUBLIC_API_URL; // (여기서는 직접 사용하므로 주석 처리하거나 삭제)
 
   // ------------------------------------------------
 
@@ -100,7 +104,7 @@ export default function InterrogationPage() {
   const [showMemoModal, setShowMemoModal] = useState(false);
   const [userInput, setUserInput] = useState("");
   const [memoText, setMemoText] = useState("");
-  const [selectedCharacter, setSelectedCharacter] = useState("라이언");
+  const [selectedCharacter, setSelectedCharacter] = useState("RYAN");
 
   const [inventory, setInventory] = useState<Item[]>([]);
   const [showInventory, setShowInventory] = useState(false);
@@ -108,18 +112,21 @@ export default function InterrogationPage() {
   const [currentItem, setCurrentItem] = useState<Item | null>(null);
 
   useEffect(() => {
-    const character = searchParams.get("character");
-    if (character && CHARACTER_BUSTS[character]) {
-      setSelectedCharacter(character);
+    const paramCharacter = searchParams.get("character"); // URL 값 가져오기 (예: "무지" or "MUZI")
+    if (paramCharacter) {
+      // Case 1: URL이 영어 ID로 온 경우 (정석)
+      if (CHARACTER_BUSTS[paramCharacter]) {
+        setSelectedCharacter(paramCharacter);
+      }
+      // Case 2: URL이 한글 이름으로 온 경우 (변환 필요)
+      else if (REVERSE_NAME_MAP[paramCharacter]) {
+        setSelectedCharacter(REVERSE_NAME_MAP[paramCharacter]); // "MUZI"로 변환해서 저장
+      }
       setNpcReply("");
       setNpcStatus({
         suspicionScore: 0,
         affectionScore: 0,
         isConfessed: false,
-      });
-      setChatContext({
-        summary: "",
-        recentLogs: [],
       });
       setUserInput("");
     }
@@ -158,100 +165,115 @@ export default function InterrogationPage() {
 
     loadInventory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   const handleLogout = () => {
     router.push("/characterselect");
   };
 
   // --- AI 서버 통신 로직 구현 ---
-  // --- AI 서버 통신 로직 구현 ---
   const handleSendMessage = async () => {
-    if (!userInput.trim()) return;
+    if (!userInput.trim() || isSending) return;
 
     const messageContent = userInput;
     const targetName = selectedCharacter;
-
-    // 1. localStorage에서 전체 아이템 데이터 가져오기
-    const savedItems = localStorage.getItem("collectedItems");
-    const inventoryData = savedItems ? JSON.parse(savedItems) : [];
-
-    // 백엔드 스키마에 맞춰 변환
-    const backendInventory = inventoryData.map((item: any) => ({
-      itemId: ITEM_ID_MAP[item.id] || item.id,
-      name: item.name,
-      obtainedAt: new Date().toISOString(),
-    }));
-
-    console.log("전송할 인벤토리 데이터:", backendInventory);
+    const sessionId = localStorage.getItem("sessionId");
+    const accessToken = localStorage.getItem("accessToken");
 
     setUserInput("");
+    setIsSending(true);
 
     try {
       const requestBody = {
-        npcName: targetName,
-        userMessage: messageContent,
-        sessionId: localStorage.getItem("sessionId") || "temp_session",
-        userInventory: backendInventory,
-        status: npcStatus,
-        context: chatContext,
+        message: messageContent,
       };
 
-      const accessToken = localStorage.getItem("accessToken");
+      const apiUrl = `${BASE_URL}/sessions/${sessionId}/npcs/${targetName}/chat`;
 
-      const response = await axios.post(
-        `http://13.62.102.106:8000/api/response`,
-        requestBody,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
+      const response = await axios.post(apiUrl, requestBody, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
-      );
+      });
 
       const resData = response.data;
-      console.log("AI 서버 응답 원본:", resData); // 디버깅용 로그
+      console.log("백엔드 응답:", resData); // 디버깅용 로그
 
-      // ✅ [수정됨] 응답 데이터 처리 로직 개선
-
-      // 1. NPC 답변 연결 (npcResponse)
-      if (resData.npcResponse) {
-        setNpcReply(resData.npcResponse);
-      } else if (resData.message) {
-        setNpcReply(resData.message);
+      if (resData.reply) {
+        setNpcReply(resData.reply);
       }
 
-      // 2. 게이지 상태 업데이트 (nextChanges)
-      // 서버에서 온 값(suspicion, affection)을 프론트 상태(suspicionScore, affectionScore)에 반영
-      if (resData.nextChanges) {
-        setNpcStatus((prev) => ({
-          ...prev,
-          suspicionScore:
-            resData.nextChanges.suspicion !== undefined
-              ? resData.nextChanges.suspicion
-              : prev.suspicionScore,
-          affectionScore:
-            resData.nextChanges.affection !== undefined
-              ? resData.nextChanges.affection
-              : prev.affectionScore,
-        }));
+      // [추가] 남은 질문 횟수 업데이트
+      if (typeof resData.remainingQuestions === "number") {
+        setRemainingQuestions(resData.remainingQuestions);
+
+        // 0회가 되면 검거 실패
+        if (resData.remainingQuestions <= 0) {
+          // (선택사항) 사용자가 상황을 인지할 수 있게 짧은 지연을 주거나 알림을 줄 수도 있습니다.
+          alert("질문 기회를 모두 소진했습니다. 검거에 실패했습니다.");
+          router.push("/ending_fail");
+          return; // 이후 로직 실행 방지
+        }
       }
 
-      // 3. 자백 여부 체크 (isConfessed)
-      if (resData.isConfessed === true) {
-        setShowEndingModal(true);
-        // 상태도 같이 업데이트
-        setNpcStatus((prev) => ({ ...prev, isConfessed: true }));
+      // [변경 2] 게이지 업데이트 -> 백엔드 DTO 구조인 'state' 사용
+      if (resData.state) {
+        setNpcStatus({
+          suspicionScore: resData.state.suspicionScore,
+          affectionScore: resData.state.affectionScore,
+          isConfessed: resData.state.isConfessed,
+        });
+
+        if (resData.state.isConfessed) {
+          setShowEndingModal(true);
+        }
       }
 
-      // 4. 대화 맥락 업데이트
-      if (resData.context) {
-        setChatContext(resData.context);
+      if (resData.rewards && resData.rewards.length > 0) {
+        const newItems: Item[] = [];
+
+        resData.rewards.forEach((reward: { itemId: string }) => {
+          // 3-1. 백엔드 ID (예: "ITEM_02") -> 프론트 ID (예: "coffee") 변환
+          // (상단에 import된 ITEM_ID_REVERSE_MAP 사용)
+          const frontendId = ITEM_ID_REVERSE_MAP[reward.itemId];
+
+          // 3-2. 전체 아이템 목록(ITEMS)에서 해당 아이템 정보(이미지, 설명 등) 찾기
+          const itemData = ITEMS.find((i) => i.id === frontendId);
+
+          // 3-3. 중복 확인: 이미 인벤토리에 있는 아이템이면 제외
+          const isDuplicate = inventory.some((inv) => inv.id === frontendId);
+
+          if (itemData && !isDuplicate) {
+            newItems.push(itemData);
+          }
+        });
+
+        // 3-4. 새로 얻은 아이템이 있다면 반영
+        if (newItems.length > 0) {
+          // (1) 알림창 띄우기
+          const itemNames = newItems.map((i) => i.name).join(", ");
+          alert(`✨ 단서 획득! [${itemNames}]을(를) 찾았습니다!`);
+
+          // (2) 화면(State) 및 로컬스토리지 업데이트
+          setInventory((prev) => {
+            const updatedInventory = [...prev, ...newItems];
+
+            // 새로고침 해도 유지되도록 저장
+            localStorage.setItem(
+              "collectedItems",
+              JSON.stringify(updatedInventory),
+            );
+
+            return updatedInventory;
+          });
+        }
       }
     } catch (error) {
       console.error("API 요청 실패:", error);
       setNpcReply("...(서버와의 연결이 불안정합니다)...");
+    } finally {
+      setIsSending(false);
     }
   };
   // -------------------------------------------------------
@@ -309,6 +331,13 @@ export default function InterrogationPage() {
             />
           </button>
 
+          {/* [추가] 2. 남은 질문 횟수 표시 (화면 중앙 상단) */}
+          <div className="absolute left-1/3 -translate-x-1/3 top-6 bg-black/50 px-4 py-1 rounded-full border border-[#864313]">
+            <span className="text-[#D4AF37] font-bold text-lg drop-shadow-md">
+              남은 질문 횟수: {remainingQuestions}
+            </span>
+          </div>
+
           <div className="flex items-center gap-4">
             <button
               onClick={() => setShowMemoModal(true)}
@@ -339,12 +368,9 @@ export default function InterrogationPage() {
         {/* ---  게이지 바 UI --- */}
         <div className="absolute left-1/2 top-[220px] -translate-x-1/2 z-40 w-[230px] space-y-3">
           {/* 호감도 */}
-          <div className="relative h-[16px] rounded-full bg-gray-300/70 overflow-visible">
-            <div
-              className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-pink-400 to-pink-500 transition-all duration-500 ease-out"
-              style={{ width: `${npcStatus.affectionScore}%` }}
-            />
-            <div className="absolute left-[60%] top-1/2 -translate-x-1/2 -translate-y-1/2">
+          <div className="flex items-center gap-3">
+            {/* 왼쪽 아이콘 */}
+            <div className="w-[30px] flex-shrink-0 flex justify-center">
               <Image
                 src="/icon/heart_icon.svg"
                 alt="호감도"
@@ -352,20 +378,31 @@ export default function InterrogationPage() {
                 height={30}
               />
             </div>
+            {/* 오른쪽 바 */}
+            <div className="relative flex-1 h-[16px] rounded-full bg-gray-300/70 overflow-hidden">
+              <div
+                className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-pink-400 to-pink-500 transition-all duration-500 ease-out"
+                style={{ width: `${npcStatus.affectionScore}%` }}
+              />
+            </div>
           </div>
 
           {/* 의심도 */}
-          <div className="relative h-[16px] rounded-full bg-gray-300/70 overflow-visible">
-            <div
-              className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-500 ease-out"
-              style={{ width: `${npcStatus.suspicionScore}%` }}
-            />
-            <div className="absolute left-[50%] top-1/2 -translate-x-1/2 -translate-y-1/2">
+          <div className="flex items-center gap-3">
+            {/* 왼쪽 아이콘 */}
+            <div className="w-[30px] flex-shrink-0 flex justify-center">
               <Image
                 src="/icon/cloud_icon.svg"
                 alt="의심도"
                 width={30}
                 height={30}
+              />
+            </div>
+            {/* 오른쪽 바 */}
+            <div className="relative flex-1 h-[16px] rounded-full bg-gray-300/70 overflow-hidden">
+              <div
+                className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-500 ease-out"
+                style={{ width: `${npcStatus.suspicionScore}%` }}
               />
             </div>
           </div>
@@ -415,7 +452,11 @@ export default function InterrogationPage() {
                 type="text"
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                    handleSendMessage();
+                  }
+                }}
                 placeholder="질문을 입력하세요..."
                 className="flex-1 bg-transparent text-white text-lg outline-none placeholder-white/60"
               />
@@ -441,16 +482,18 @@ export default function InterrogationPage() {
               <div className="space-y-4 mb-8">
                 <p className="text-[#ffffff] text-lg leading-relaxed whitespace-pre-line font-bold">
                   사건의 범인은{" "}
-                  <span className="text-[#D4AF37]">{selectedCharacter}</span>
+                  <span className="text-[#D4AF37]">
+                    {CHARACTER_NAMES_KO[selectedCharacter]}
+                  </span>
                   (으)로 밝혀졌다.
                   <br />
                   <br />
-                  {selectedCharacter}는 자신의 잘못을 뉘우치고 동상을 원래대로
-                  돌려놓았다.
+                  {CHARACTER_NAMES_KO[selectedCharacter]}는 자신의 잘못을
+                  뉘우치고 동상을 원래대로 돌려놓았다.
                   <br />
                   <br />
-                  {selectedCharacter}의 반성하는 태도와 자백으로 선처해 주기로
-                  하였다.
+                  {CHARACTER_NAMES_KO[selectedCharacter]}의 반성하는 태도와
+                  자백으로 선처해 주기로 하였다.
                   <br />
                   <br />
                   &quot;황금 콘 도난 사건&quot;은 이렇게 일단락되었고... 카카오
