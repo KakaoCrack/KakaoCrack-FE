@@ -71,6 +71,7 @@ export default function StartPage() {
   const [showStartButton, setShowStartButton] = useState(false);
   const [showTutorialModal, setShowTutorialModal] = useState(false);
   const [currentItem, setCurrentItem] = useState<Item | null>(null);
+  const [isAcquiring, setIsAcquiring] = useState(false); // 아이템 획득 중 상태
 
   // 페이지 로드 시 세션 생성 및 인벤토리 불러오기
   useEffect(() => {
@@ -157,13 +158,16 @@ export default function StartPage() {
 
   // 아이템 획득
   const handleItemClick = async (item: Item) => {
-    if (collectedItems.includes(item.id)) return;
+    // 중복 클릭 방지: 이미 획득했거나 현재 획득 중이면 무시
+    if (collectedItems.includes(item.id) || isAcquiring) return;
 
     const sessionId = localStorage.getItem("sessionId");
     if (!sessionId) {
       alert("세션 ID가 없습니다. 로그인이 필요합니다.");
       return;
     }
+
+    setIsAcquiring(true); // 획득 중 상태 시작
 
     try {
       // 백엔드 API 호출
@@ -188,6 +192,8 @@ export default function StartPage() {
       } else {
         alert("아이템 획득에 실패했습니다.");
       }
+    } finally {
+      setIsAcquiring(false); // 획득 완료 후 상태 해제
     }
   };
 

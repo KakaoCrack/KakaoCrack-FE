@@ -101,6 +101,7 @@ export default function InterrogationPage() {
   // ------------------------------------------------
 
   const [showEndingModal, setShowEndingModal] = useState(false);
+  const [showFailModal, setShowFailModal] = useState(false);
   const [showMemoModal, setShowMemoModal] = useState(false);
 
   const [showItemAcquiredModal, setShowItemAcquiredModal] = useState(false);
@@ -255,11 +256,9 @@ export default function InterrogationPage() {
           resData.remainingQuestions.toString(),
         );
 
-        // 0회가 되면 검거 실패
+        // 0회가 되면 검거 실패 모달 표시
         if (resData.remainingQuestions <= 0) {
-          // (선택사항) 사용자가 상황을 인지할 수 있게 짧은 지연을 주거나 알림을 줄 수도 있습니다.
-          alert("질문 기회를 모두 소진했습니다. 검거에 실패했습니다.");
-          router.push("/ending_fail");
+          setShowFailModal(true);
           return; // 이후 로직 실행 방지
         }
       }
@@ -327,6 +326,10 @@ export default function InterrogationPage() {
 
   const handleEndingNext = () => {
     router.push("/ending_arrest");
+  };
+
+  const handleFailNext = () => {
+    router.push("/ending_fail");
   };
 
   // [추가] 아이템 획득 모달 확인 버튼 핸들러
@@ -578,6 +581,51 @@ export default function InterrogationPage() {
               </div>
               <button
                 onClick={handleEndingNext}
+                className="px-10 py-2 border border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black transition-colors font-bold rounded shadow-[0_0_10px_rgba(212,175,55,0.2)]"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 범인 검거 실패 모달 */}
+        {showFailModal && (
+          <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/80 animate-fadeIn">
+            <div className="relative w-[360px] bg-[#1a1a1a] border-2 border-[#D4AF37] rounded-lg p-8 flex flex-col items-center shadow-[0_0_20px_rgba(212,175,55,0.3)] text-center">
+              <div className="space-y-4 mb-8">
+                <p className="text-[#ffffff] text-base leading-relaxed whitespace-pre-line font-bold">
+                  사건의 진실은
+                  <br />
+                  끝내 밝혀지지 않았다.
+                  <br />
+                  정체를 알 수 없는 범인은
+                  <br />
+                  혼란 속을 틈타
+                  <br />
+                  어둠 속으로 사라졌고,
+                  <br />
+                  황금 콘의 행방은
+                  <br />
+                  여전히 모연하다.
+                  <br />
+                  남겨진 것은 부서진 흔적과
+                  <br />
+                  풀리지 않은 의문뿐.
+                  <br />
+                  &quot;황금 콘 도난 사건&quot;은
+                  <br />
+                  미해결 사건으로 남았고
+                  <br />
+                  카카오 회사에는
+                  <br />
+                  완전하지 않은 평화가
+                  <br />
+                  찾아왔다...
+                </p>
+              </div>
+              <button
+                onClick={handleFailNext}
                 className="px-10 py-2 border border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black transition-colors font-bold rounded shadow-[0_0_10px_rgba(212,175,55,0.2)]"
               >
                 확인
