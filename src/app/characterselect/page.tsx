@@ -27,28 +27,28 @@ const ITEMS: Item[] = [
   {
     id: "fur",
     name: "갈색 털뭉치",
-    description: "현장 바닥에서 발견된\n갈색 털뭉치",
+    description: "갈색 털뭉치\n\n누군가가 떨어뜨린\n갈색 털뭉치이다.\n갈색 털뭉치의 것일까?",
     icon: "/character/아이템_갈색털뭉치.svg",
     miniIcon: "/character/아이템_갈색털뭉치_미니.svg",
   },
   {
     id: "card",
     name: "보안카드",
-    description: "사무실에 떨어져 있던\n직원가의 출입 보안카드",
+    description: "보안카드\n\n현장에서 발견된 보안카드이다.\n오후 11시부터 11시 3분 사이에\n외출했다는 기록이 남아있다.\n소유자는 라이언 경비원으로 보인다.",
     icon: "/character/아이템_보안카드.svg",
     miniIcon: "/character/아이템_보안카드_미니.svg",
   },
   {
     id: "chocolate",
     name: "초콜릿 봉지",
-    description: "발품 뜯려 있는\n초콜릿 봉지",
+    description: "초콜릿 봉지\n\n누군가가 떨어뜨린\n초콜릿 봉지이다.\n탐식실에 비치된 초콜릿과\n동일한 브랜드이다.",
     icon: "/character/아이템_초콜릿봉지.svg",
     miniIcon: "/character/아이템_초콜릿봉지_미니.svg",
   },
   {
     id: "coffee",
     name: "커피 자국",
-    description: "누군가 흘렸게 쓴은 듯한\n커피 자국",
+    description: "커피 자국\n\n누군가가 커피를 흘린 자국이\n제대로 지워지지 않고\n희미하게 남아 있었다.\n어피치의 동선을 추적 의도했다.",
     icon: "/character/아이템_커피자국.svg",
     miniIcon: "/character/아이템_커피자국_미니.svg",
   },
@@ -87,12 +87,28 @@ export default function CharacterSelectPage() {
       try {
         const items = await getSessionInventory(sessionId);
 
-        // 백엔드 아이템을 프론트엔드 형식으로 변환
+        // 백엔드 아이템을 프론트엔드 형식으로 변환 (백엔드 description 사용)
         const frontendItems: Item[] = items
           .map((item) => {
             const frontendId = ITEM_ID_REVERSE_MAP[item.itemId];
             const itemData = ITEMS.find((i) => i.id === frontendId);
-            return itemData ? { ...itemData } : null;
+            if (!itemData) return null;
+
+            // description에서 undefined 완전 제거
+            let cleanDescription = itemData.description;
+            if (item.description && item.description !== "undefined") {
+              cleanDescription = String(item.description)
+                .replace(/undefined/gi, "")
+                .trim();
+              if (!cleanDescription) {
+                cleanDescription = itemData.description;
+              }
+            }
+
+            return {
+              ...itemData,
+              description: cleanDescription,
+            };
           })
           .filter((item): item is Item => item !== null);
 
