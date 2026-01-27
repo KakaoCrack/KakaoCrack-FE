@@ -1,6 +1,5 @@
 "use client";
-
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import axios from "axios";
@@ -30,28 +29,32 @@ const ITEMS: Item[] = [
   {
     id: "fur",
     name: "갈색 털뭉치",
-    description: "누군가가 떨어뜨린\n갈색 털뭉치이다.",
+    description:
+      "갈색 털뭉치\n\n누군가가 떨어뜨린\n갈색 털뭉치이다.\n갈색 털뭉치의 것일까?",
     icon: "/character/아이템_갈색털뭉치.svg",
     miniIcon: "/character/아이템_갈색털뭉치_미니.svg",
   },
   {
     id: "card",
     name: "보안카드",
-    description: "누군가가 떨어뜨린\n보안카드이다.",
+    description:
+      "보안카드\n\n현장에서 발견된 보안카드이다.\n오후 11시부터 11시 3분 사이에\n외출했다는 기록이 남아있다.\n소유자는 라이언 경비원으로 보인다.",
     icon: "/character/아이템_보안카드.svg",
     miniIcon: "/character/아이템_보안카드_미니.svg",
   },
   {
     id: "chocolate",
     name: "초콜릿 봉지",
-    description: "누군가가 떨어뜨린\n초콜릿 봉지이다.",
+    description:
+      "초콜릿 봉지\n\n누군가가 떨어뜨린\n초콜릿 봉지이다.\n탐식실에 비치된 초콜릿과\n동일한 브랜드이다.",
     icon: "/character/아이템_초콜릿봉지.svg",
     miniIcon: "/character/아이템_초콜릿봉지_미니.svg",
   },
   {
     id: "coffee",
     name: "커피 자국",
-    description: "누군가가 흘린\n커피 자국이다.",
+    description:
+      "커피 자국\n\n누군가가 커피를 흘린 자국이\n제대로 지워지지 않고\n희미하게 남아 있었다.\n어피치의 동선을 추적 의도했다.",
     icon: "/character/아이템_커피자국.svg",
     miniIcon: "/character/아이템_커피자국_미니.svg",
   },
@@ -81,6 +84,14 @@ const CHARACTER_NAMES_KO: Record<string, string> = {
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
+// 캐릭터별 초기 인사말
+const INITIAL_GREETINGS: Record<string, string> = {
+  RYAN: "질문을 입력해서\n취조를 시작하세요.",
+  MUZI: "질문을 입력해서\n취조를 시작하세요.",
+  APEACH: "질문을 입력해서\n취조를 시작하세요.",
+  FRODO: "질문을 입력해서\n취조를 시작하세요.",
+};
+
 export default function InterrogationPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -97,6 +108,11 @@ export default function InterrogationPage() {
 
   // 3. NPC 답변
   const [npcReply, setNpcReply] = useState("");
+  const [displayedReply, setDisplayedReply] = useState(""); // 타이핑 효과용
+  const [isTyping, setIsTyping] = useState(false); // 타이핑 중 상태
+  const typingIntervalRef = useRef<NodeJS.Timeout | null>(null); // interval 참조
+  const endingTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 엔딩 모달 타이머
+  const failTimeoutRef = useRef<NodeJS.Timeout | null>(null); // 실패 모달 타이머
 
   // ------------------------------------------------
 
@@ -108,6 +124,7 @@ export default function InterrogationPage() {
   const [newlyAcquiredItems, setNewlyAcquiredItems] = useState<Item[]>([]);
 
   const [userInput, setUserInput] = useState("");
+  const [lastSentMessage, setLastSentMessage] = useState(""); // 마지막 전송 메시지 저장
   const [memoText, setMemoText] = useState("");
   const [selectedCharacter, setSelectedCharacter] = useState("RYAN");
 
@@ -157,10 +174,35 @@ export default function InterrogationPage() {
 
     // (3) 마지막 대사 복구 (말풍선이 비어있지 않게)
     const savedReply = localStorage.getItem(`lastReply_${currentTarget}`);
-    if (savedReply) {
-      setNpcReply(savedReply);
+    
+    console.log("====== localStorage 복구 ======");
+    console.log("savedReply:", savedReply);
+
+    if (savedReply && savedReply.trim() && savedReply !== "undefined") {
+      // undefined만 제거
+      const cleanSavedReply = savedReply
+        .split("undefined").join("")
+        .split("Undefined").join("")
+        .split("UNDEFINED").join("")
+        .trim();
+
+      console.log("정제된 savedReply:", cleanSavedReply);
+
+      if (cleanSavedReply && cleanSavedReply.length > 0) {
+        setNpcReply(cleanSavedReply);
+        setDisplayedReply(cleanSavedReply);
+      } else {
+        const greeting =
+          INITIAL_GREETINGS[currentTarget] || INITIAL_GREETINGS.RYAN;
+        setNpcReply(greeting);
+        setDisplayedReply(greeting);
+      }
     } else {
-      setNpcReply("");
+      // 초기 인사말 설정
+      const greeting =
+        INITIAL_GREETINGS[currentTarget] || INITIAL_GREETINGS.RYAN;
+      setNpcReply(greeting);
+      setDisplayedReply(greeting);
     }
 
     // 입력창은 항상 비우기
@@ -179,11 +221,28 @@ export default function InterrogationPage() {
 
       try {
         const items = await getSessionInventory(sessionId);
+        // 백엔드 아이템을 프론트엔드 형식으로 변환 (백엔드 description 사용)
         const frontendItems: Item[] = items
           .map((item) => {
             const frontendId = ITEM_ID_REVERSE_MAP[item.itemId];
             const itemData = ITEMS.find((i) => i.id === frontendId);
-            return itemData ? { ...itemData } : null;
+            if (!itemData) return null;
+
+            // description에서 undefined 완전 제거
+            let cleanDescription = itemData.description;
+            if (item.description && item.description !== "undefined") {
+              cleanDescription = String(item.description)
+                .replace(/undefined/gi, "")
+                .trim();
+              if (!cleanDescription) {
+                cleanDescription = itemData.description;
+              }
+            }
+
+            return {
+              ...itemData,
+              description: cleanDescription,
+            };
           })
           .filter((item): item is Item => item !== null);
 
@@ -212,6 +271,74 @@ export default function InterrogationPage() {
     router.push("/characterselect");
   };
 
+  // 타이핑 효과 함수 (콜백 추가)
+  const typeText = (text: string, onComplete?: () => void) => {
+    console.log("====== 타이핑 효과 시작 ======");
+    console.log("입력 텍스트:", text);
+    console.log("입력 길이:", text?.length);
+
+    if (!text || text.length === 0) {
+      console.warn("타이핑할 텍스트가 없습니다");
+      setDisplayedReply("");
+      setIsTyping(false);
+      if (onComplete) onComplete();
+      return;
+    }
+
+    // 이전 타이핑 효과가 있다면 중단
+    if (typingIntervalRef.current) {
+      clearInterval(typingIntervalRef.current);
+      typingIntervalRef.current = null;
+    }
+
+    setIsTyping(true);
+    setDisplayedReply("");
+    let index = 0;
+
+    typingIntervalRef.current = setInterval(() => {
+      if (index < text.length) {
+        const char = text[index];
+        setDisplayedReply((prev) => {
+          const newText = prev + char;
+          // 실시간으로 undefined 체크
+          if (newText.includes("undefined")) {
+            console.error("타이핑 중 undefined 발견!", newText);
+          }
+          return newText;
+        });
+        index++;
+      } else {
+        if (typingIntervalRef.current) {
+          clearInterval(typingIntervalRef.current);
+          typingIntervalRef.current = null;
+        }
+        setIsTyping(false);
+        console.log("====== 타이핑 효과 완료 ======");
+        
+        // 타이핑 완료 후 콜백 실행
+        if (onComplete) {
+          console.log("타이핑 완료 콜백 실행");
+          onComplete();
+        }
+      }
+    }, 70);
+  };
+
+  // 컴포넌트 언마운트 시 타이핑 효과 정리
+  useEffect(() => {
+    return () => {
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+      }
+      if (endingTimeoutRef.current) {
+        clearTimeout(endingTimeoutRef.current);
+      }
+      if (failTimeoutRef.current) {
+        clearTimeout(failTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // --- AI 서버 통신 로직 구현 ---
   const handleSendMessage = async () => {
     if (!userInput.trim() || isSending) return;
@@ -221,8 +348,10 @@ export default function InterrogationPage() {
     const sessionId = localStorage.getItem("sessionId");
     const accessToken = localStorage.getItem("accessToken");
 
-    setUserInput("");
+    // 전송한 메시지를 저장하고, 입력창은 비우지 않음
+    setLastSentMessage(messageContent);
     setIsSending(true);
+    setDisplayedReply("생각 중...");
 
     try {
       const requestBody = {
@@ -239,13 +368,85 @@ export default function InterrogationPage() {
       });
 
       const resData = response.data;
-      console.log("백엔드 응답:", resData); // 디버깅용 로그
+      console.log("====== 백엔드 응답 디버깅 시작 ======");
+      console.log("전체 응답:", JSON.stringify(resData, null, 2));
+      console.log("reply 원본:", resData.reply);
+      console.log("reply 타입:", typeof resData.reply);
+      console.log("reply 길이:", resData.reply?.length);
 
       if (resData.reply) {
-        setNpcReply(resData.reply);
-        // [추가] 마지막 대사 저장 (선택 사항: 다시 들어왔을 때 마지막 말풍선 보여주기 위함)
-        localStorage.setItem(`lastReply_${targetName}`, resData.reply);
+        // 백엔드 응답을 문자열로 변환
+        let cleanReply = String(resData.reply);
+        
+        console.log("변환 후 cleanReply:", cleanReply);
+        console.log("변환 후 길이:", cleanReply.length);
+
+        // undefined가 문자열 전체인지 확인
+        if (cleanReply === "undefined" || cleanReply.toLowerCase() === "undefined") {
+          console.error("응답 전체가 undefined입니다!");
+          const fallbackMsg = "응답을 받지 못했습니다.";
+          setNpcReply(fallbackMsg);
+          setDisplayedReply(fallbackMsg);
+          setIsTyping(false);
+          return;
+        }
+
+        // undefined 단어만 정확히 제거 (다른 텍스트는 보존)
+        cleanReply = cleanReply
+          .split("undefined").join("")  // undefined 제거
+          .split("Undefined").join("")  // Undefined 제거
+          .split("UNDEFINED").join("")  // UNDEFINED 제거
+          .trim();
+
+        console.log("undefined 제거 후:", cleanReply);
+        console.log("제거 후 길이:", cleanReply.length);
+
+        if (cleanReply && cleanReply.length > 0) {
+          console.log("최종 저장될 reply:", cleanReply);
+          setNpcReply(cleanReply);
+          localStorage.setItem(`lastReply_${targetName}`, cleanReply);
+          
+          // 타이핑 완료 후 실행할 콜백 정의
+          const onTypingComplete = () => {
+            console.log("타이핑 완료 - 모달 조건 체크");
+            console.log("isConfessed:", resData.state?.isConfessed);
+            console.log("remainingQuestions:", resData.remainingQuestions);
+            
+            // 우선순위 1: 자백 성공 시 성공 모달 (검거 성공)
+            if (resData.state?.isConfessed === true) {
+              console.log("✅ 검거 성공! 성공 모달 1.5초 후 표시");
+              if (endingTimeoutRef.current) {
+                clearTimeout(endingTimeoutRef.current);
+              }
+              endingTimeoutRef.current = setTimeout(() => {
+                setShowEndingModal(true);
+              }, 1500);
+            }
+            // 우선순위 2: 자백 안했고 질문 횟수 소진 시 실패 모달 (검거 실패)
+            else if (typeof resData.remainingQuestions === "number" && resData.remainingQuestions <= 0) {
+              console.log("❌ 검거 실패! 실패 모달 1.5초 후 표시");
+              if (failTimeoutRef.current) {
+                clearTimeout(failTimeoutRef.current);
+              }
+              failTimeoutRef.current = setTimeout(() => {
+                setShowFailModal(true);
+              }, 1500);
+            }
+          };
+          
+          typeText(cleanReply, onTypingComplete);
+        } else {
+          console.error("정제 후 빈 문자열!");
+          const fallbackMsg = "응답을 처리할 수 없습니다.";
+          setNpcReply(fallbackMsg);
+          setDisplayedReply(fallbackMsg);
+          setIsTyping(false);
+        }
+      } else {
+        console.error("reply가 없습니다!");
       }
+      
+      console.log("====== 백엔드 응답 디버깅 끝 ======");
 
       // [추가] 남은 질문 횟수 업데이트
       if (typeof resData.remainingQuestions === "number") {
@@ -256,10 +457,11 @@ export default function InterrogationPage() {
           resData.remainingQuestions.toString(),
         );
 
-        // 0회가 되면 검거 실패 모달 표시
+        // 0회가 되면 검거 실패 모달 표시 (타이핑 완료 후 1.5초 뒤)
         if (resData.remainingQuestions <= 0) {
-          setShowFailModal(true);
-          return; // 이후 로직 실행 방지
+          // 플래그 설정 (타이핑 완료 후 처리하기 위해)
+          // 나중에 typeText의 콜백에서 처리됨
+          // 여기서는 일단 넘어감
         }
       }
 
@@ -278,8 +480,10 @@ export default function InterrogationPage() {
           JSON.stringify(newState),
         );
 
+        // 자백 성공 시 타이핑 완료 후 1.5초 뒤 모달 표시
         if (resData.state.isConfessed) {
-          setShowEndingModal(true);
+          // 플래그 설정 (타이핑 완료 후 처리하기 위해)
+          // 나중에 typeText의 콜백에서 처리됨
         }
       }
 
@@ -287,15 +491,31 @@ export default function InterrogationPage() {
       if (resData.rewards && resData.rewards.length > 0) {
         const newItems: Item[] = [];
 
-        resData.rewards.forEach((reward: { itemId: string }) => {
-          const frontendId = ITEM_ID_REVERSE_MAP[reward.itemId];
-          const itemData = ITEMS.find((i) => i.id === frontendId);
-          const isDuplicate = inventory.some((inv) => inv.id === frontendId);
+        resData.rewards.forEach(
+          (reward: { itemId: string; description?: string }) => {
+            const frontendId = ITEM_ID_REVERSE_MAP[reward.itemId];
+            const itemData = ITEMS.find((i) => i.id === frontendId);
+            const isDuplicate = inventory.some((inv) => inv.id === frontendId);
 
-          if (itemData && !isDuplicate) {
-            newItems.push(itemData);
-          }
-        });
+            if (itemData && !isDuplicate) {
+              // 백엔드에서 받은 description 사용 (undefined 완전 제거)
+              let cleanDescription = itemData.description;
+              if (reward.description && reward.description !== "undefined") {
+                cleanDescription = String(reward.description)
+                  .replace(/undefined/gi, "")
+                  .trim();
+                if (!cleanDescription) {
+                  cleanDescription = itemData.description;
+                }
+              }
+
+              newItems.push({
+                ...itemData,
+                description: cleanDescription,
+              });
+            }
+          },
+        );
 
         if (newItems.length > 0) {
           // 1. 획득한 아이템 저장
@@ -317,7 +537,10 @@ export default function InterrogationPage() {
       }
     } catch (error) {
       console.error("API 요청 실패:", error);
-      setNpcReply("...(서버와의 연결이 불안정합니다)...");
+      const errorMsg = "...(서버와의 연결이 불안정합니다)...";
+      setNpcReply(errorMsg);
+      setDisplayedReply(errorMsg);
+      setIsTyping(false);
     } finally {
       setIsSending(false);
     }
@@ -363,17 +586,23 @@ export default function InterrogationPage() {
     // 1. 현재 캐릭터의 한글 이름 가져오기 (RYAN -> 라이언)
     const koreanName = CHARACTER_NAMES_KO[selectedCharacter];
 
-    // 2. 감정 상태 판단 (기준점: 50점)
+    // 2. 감정 상태 판단
     let emotion = "기본"; // Default
 
-    // 로직: 의심도가 50 이상이면 '당황', 아니라면 호감도가 50 이상일 때 '호감'
-    if (npcStatus.suspicionScore >= 30) {
+    // 우선순위 1: 자백했을 때는 무조건 당황
+    if (npcStatus.isConfessed) {
       emotion = "당황";
-    } else if (npcStatus.affectionScore >= 30) {
+    }
+    // 우선순위 2: 의심도가 30 이상이면 '당황'
+    else if (npcStatus.suspicionScore >= 30) {
+      emotion = "당황";
+    } 
+    // 우선순위 3: 호감도가 30 이상이면 '호감'
+    else if (npcStatus.affectionScore >= 30) {
       emotion = "호감";
     }
 
-    // 3. 파일 경로 조합 (예: /character/어피치_당황_흉상.svg)
+    // 3. 파일 경로 조합 (예: /character/프로도_당황_흉상.svg)
     return `/character/${koreanName}_${emotion}_흉상.svg`;
   };
 
@@ -511,7 +740,8 @@ export default function InterrogationPage() {
           />
           <div className="absolute inset-0 flex items-center justify-center px-8 py-6">
             <p className="text-white text-center text-base leading-relaxed whitespace-pre-wrap">
-              {npcReply}
+              {displayedReply}
+              {isTyping && <span className="animate-pulse">|</span>}
             </p>
           </div>
         </div>
@@ -531,6 +761,13 @@ export default function InterrogationPage() {
                 type="text"
                 value={userInput}
                 onChange={(e) => setUserInput(e.target.value)}
+                onFocus={() => {
+                  // 입력창을 클릭할 때, 이전에 전송한 메시지가 남아있으면 지우기
+                  if (userInput === lastSentMessage && lastSentMessage !== "") {
+                    setUserInput("");
+                    setLastSentMessage("");
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.nativeEvent.isComposing) {
                     handleSendMessage();
