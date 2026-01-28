@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 // 캐릭터 선택 페이지에서 사용했던 배경과 폰트 스타일을 유지합니다.
 import bgImage from "@/assets/images/캐릭터 선택 페이지 배경화면.png";
 import buttonBg from "@/assets/images/캐릭터 선택 배경 2.png";
+import { clearGameData } from "@/lib/api/auth";
 
 export default function SuccessEndingPage() {
   const router = useRouter();
@@ -16,7 +17,22 @@ export default function SuccessEndingPage() {
     const startTimeStr = localStorage.getItem("gameStartTime");
     if (startTimeStr) {
       const startTime = new Date(startTimeStr);
-      const endTime = new Date();
+      
+      // 종료 시간을 localStorage에서 먼저 확인
+      // 이미 저장된 종료 시간이 있으면 그것을 사용 (페이지에 머물러도 시간이 고정됨)
+      let endTimeStr = localStorage.getItem("gameEndTime");
+      let endTime: Date;
+      
+      if (!endTimeStr) {
+        // 종료 시간이 없으면 현재 시간을 종료 시간으로 저장
+        endTime = new Date();
+        localStorage.setItem("gameEndTime", endTime.toISOString());
+        console.log("✅ 게임 종료 시간 저장:", endTime.toISOString());
+      } else {
+        // 이미 저장된 종료 시간 사용
+        endTime = new Date(endTimeStr);
+        console.log("📌 저장된 게임 종료 시간 사용:", endTime.toISOString());
+      }
       
       // 밀리초 차이 계산
       const diffMs = endTime.getTime() - startTime.getTime();
@@ -49,12 +65,15 @@ export default function SuccessEndingPage() {
     }
   }, []);
 
-  // 다시 시작하기: 메인 화면이나 캐릭터 선택 화면으로 이동
+  // 다시 시작하기: 모든 게임 데이터 초기화 후 start 페이지로 이동
   const handleRestart = () => {
-    // 게임 시작 시간 초기화
-    localStorage.removeItem("gameStartTime");
-    localStorage.removeItem("playTime");
-    router.push("/start"); // 또는 캐릭터 선택 페이지 경로
+    console.log("게임 재시작 - 모든 게임 데이터 초기화");
+    
+    // 게임 데이터 완전 초기화 (인증 정보는 유지)
+    clearGameData();
+    
+    // start 페이지로 이동 (새 세션 자동 생성됨)
+    router.push("/start");
   };
 
   // 결과 공유하기: 카카오 공유 등 외부 API 연동 가능

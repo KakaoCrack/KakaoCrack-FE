@@ -106,7 +106,44 @@ export function clearAllData() {
   localStorage.removeItem('sessionId');
   localStorage.removeItem('collectedItems');
   localStorage.removeItem('gameStartTime');
+  localStorage.removeItem('gameEndTime'); // 게임 종료 시간도 초기화
   localStorage.removeItem('playTime');
+  localStorage.removeItem('remainingQuestions');
+  localStorage.removeItem('gameProgress');
+  sessionStorage.clear();
+}
+
+// 게임 데이터만 초기화 (인증 정보는 유지)
+export function clearGameData() {
+  // 세션 및 게임 진행 데이터
+  localStorage.removeItem('sessionId');
+  localStorage.removeItem('collectedItems');
+  localStorage.removeItem('gameStartTime');
+  localStorage.removeItem('gameEndTime'); // 게임 종료 시간도 초기화
+  localStorage.removeItem('playTime');
+  localStorage.removeItem('remainingQuestions');
+  localStorage.removeItem('gameProgress');
+  
+  // 캐릭터별 대화 내역 및 상태 (RYAN, MUZI, APEACH, FRODO)
+  const characters = ['RYAN', 'MUZI', 'APEACH', 'FRODO'];
+  characters.forEach(character => {
+    localStorage.removeItem(`lastReply_${character}`);
+    localStorage.removeItem(`npcStatus_${character}`);
+  });
+  
+  // 사용자 메모
+  localStorage.removeItem('userMemo');
+  
+  // 힌트 데이터
+  localStorage.removeItem('unlockedHints');
+  
+  // 세션 스토리지 전체 초기화
+  sessionStorage.clear();
+  
+  console.log('게임 데이터 초기화 완료 (인증 정보 유지)');
+  console.log('- 세션 ID, 아이템, 게임 시간 초기화');
+  console.log('- 모든 캐릭터 대화 내역 초기화');
+  console.log('- 메모 및 힌트 초기화');
 }
 
 // 카카오 로그인 URL 생성
