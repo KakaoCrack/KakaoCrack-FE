@@ -20,11 +20,16 @@ import {
   INITIAL_GREETINGS,
 } from "@/constants/gameData";
 
+const HINT_THRESHOLDS: Record<number, string> = {
+  100: "💡 힌트 1: 어피치의 호감도를 30까지 올려 보셨나요?",
+  10: "💡 힌트 2: 무지의 의심도를 50까지 올려 보셨나요?",
+};
+
 export default function GameInterface() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isSending, setIsSending] = useState(false);
-  const [remainingQuestions, setRemainingQuestions] = useState(20);
+  const [remainingQuestions, setRemainingQuestions] = useState(150);
 
   const [npcStatus, setNpcStatus] = useState<NpcStatus>({
     suspicionScore: 0,
@@ -45,6 +50,11 @@ export default function GameInterface() {
 
   const [showItemAcquiredModal, setShowItemAcquiredModal] = useState(false);
   const [newlyAcquiredItems, setNewlyAcquiredItems] = useState<Item[]>([]);
+
+  // [추가] 힌트 관련 State
+  const [unlockedHints, setUnlockedHints] = useState<string[]>([]); // 해금된 힌트들
+  const [showNewHintModal, setShowNewHintModal] = useState<string | null>(null); // 새 힌트 알림 모달
+  const [showHintListModal, setShowHintListModal] = useState(false); // 힌트 목록 모달
 
   const [userInput, setUserInput] = useState("");
   const [lastSentMessage, setLastSentMessage] = useState("");
@@ -72,6 +82,14 @@ export default function GameInterface() {
     const savedQuestions = localStorage.getItem("remainingQuestions");
     if (savedQuestions) {
       setRemainingQuestions(parseInt(savedQuestions, 10));
+    } else {
+      setRemainingQuestions(150); // [수정] 저장된 게 없으면 150
+    }
+
+    // [추가] 저장된 힌트 목록 불러오기
+    const savedHints = localStorage.getItem("unlockedHints");
+    if (savedHints) {
+      setUnlockedHints(JSON.parse(savedHints));
     }
 
     const savedStatus = localStorage.getItem(`npcStatus_${currentTarget}`);
@@ -352,11 +370,32 @@ export default function GameInterface() {
       console.log("====== 백엔드 응답 디버깅 끝 ======");
 
       if (typeof resData.remainingQuestions === "number") {
-        setRemainingQuestions(resData.remainingQuestions);
-        localStorage.setItem(
-          "remainingQuestions",
-          resData.remainingQuestions.toString()
-        );
+        const nextQuestions = resData.remainingQuestions;
+        setRemainingQuestions(nextQuestions);
+        localStorage.setItem("remainingQuestions", nextQuestions.toString());
+
+        // [추가] 힌트 해금 조건 체크
+        // 1. 해당 횟수에 힌트가 있는지 확인
+        // 2. 이미 획득한 힌트인지 확인 (중복 방지)
+        if (HINT_THRESHOLDS[nextQuestions]) {
+          const newHint = HINT_THRESHOLDS[nextQuestions];
+
+          setUnlockedHints((prev) => {
+            if (!prev.includes(newHint)) {
+              // 새 힌트라면 저장 및 알림 표시
+              const updated = [...prev, newHint];
+              localStorage.setItem("unlockedHints", JSON.stringify(updated));
+              setShowNewHintModal(newHint); // 알림 모달 띄우기
+              return updated;
+            }
+            return prev;
+          });
+        }
+
+        // 0회가 되면 검거 실패 (기존 로직)
+        if (nextQuestions <= 0) {
+          // ... (기존 실패 처리) ...
+        }
       }
 
       if (resData.state) {
@@ -369,7 +408,7 @@ export default function GameInterface() {
         setNpcStatus(newState);
         localStorage.setItem(
           `npcStatus_${targetName}`,
-          JSON.stringify(newState)
+          JSON.stringify(newState),
         );
       }
 
@@ -398,7 +437,7 @@ export default function GameInterface() {
                 description: cleanDescription,
               });
             }
-          }
+          },
         );
 
         if (newItems.length > 0) {
@@ -409,7 +448,7 @@ export default function GameInterface() {
             const updatedInventory = [...prev, ...newItems];
             localStorage.setItem(
               "collectedItems",
-              JSON.stringify(updatedInventory)
+              JSON.stringify(updatedInventory),
             );
             return updatedInventory;
           });
@@ -486,7 +525,8 @@ export default function GameInterface() {
         />
 
         {/* 상단 아이콘들 */}
-        <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-3 pt-4">
+        {/* [수정] items-center -> items-start: 아이콘 배치가 세로로 길어져도 왼쪽 버튼과 높이를 맞춤 */}
+        <div className="absolute top-0 left-0 right-0 z-50 flex items-start justify-between px-3 pt-4">
           {/* 왼쪽: 나가기 버튼 */}
           <button
             onClick={handleLogout}
@@ -500,27 +540,42 @@ export default function GameInterface() {
             />
           </button>
 
-          {/* 중앙: 남은 질문 횟수 표시 */}
+          {/* 중앙: 남은 질문 횟수 표시 (absolute로 위치 고정됨) */}
           <div className="absolute left-1/2 -translate-x-1/2 top-6 bg-black/50 px-4 py-1 rounded-full border border-[#864313]">
             <span className="text-[#D4AF37] font-bold text-lg drop-shadow-md whitespace-nowrap">
               남은 질문 횟수: {remainingQuestions}
             </span>
           </div>
 
-          {/* 오른쪽: 메모 & 인벤토리 버튼 */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowMemoModal(true)}
-              className="w-12 h-12 transition-transform hover:scale-110 active:scale-95"
-            >
-              <Image
-                src="/icon/memo_icon.svg"
-                alt="메모"
-                width={40}
-                height={40}
-              />
-            </button>
+          {/* 오른쪽: 메모/힌트 그룹 + 인벤토리 버튼 */}
+          {/* [수정] items-start로 설정하여 메모와 인벤토리가 윗선에 맞춰짐 */}
+          <div className="flex items-start gap-2">
+            {/* [추가] 메모와 힌트를 세로로 묶는 그룹 */}
+            <div className="flex flex-col items-center gap-2">
+              {/* 1. 메모 버튼 (위) */}
+              <button
+                onClick={() => setShowMemoModal(true)}
+                className="w-12 h-12 transition-transform hover:scale-110 active:scale-95"
+              >
+                <Image
+                  src="/icon/memo_icon.svg"
+                  alt="메모"
+                  width={40}
+                  height={40}
+                />
+              </button>
 
+              {/* 2. 힌트 버튼 (메모 바로 아래) */}
+              <button
+                onClick={() => setShowHintListModal(true)}
+                className="w-12 h-12 transition-transform hover:scale-110 active:scale-95 flex items-center justify-center bg-black/30 rounded-full border-2 border-[#D4AF37]/50"
+                title="획득한 힌트 보기"
+              >
+                <span className="text-2xl filter drop-shadow-md">💡</span>
+              </button>
+            </div>
+
+            {/* 3. 인벤토리 버튼 (메모 옆에 위치) */}
             <button
               onClick={() => setShowInventory((v) => !v)}
               className="w-12 h-12 transition-transform hover:scale-110 active:scale-95"
@@ -538,7 +593,7 @@ export default function GameInterface() {
         {/* 게이지 바 UI */}
         <div className="absolute left-1/2 top-[220px] -translate-x-1/2 z-40 w-[230px] space-y-3">
           {/* 호감도 */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div className="w-[30px] flex-shrink-0 flex justify-center">
               <Image
                 src="/icon/heart_icon.svg"
@@ -547,16 +602,23 @@ export default function GameInterface() {
                 height={30}
               />
             </div>
-            <div className="relative flex-1 h-[16px] rounded-full bg-gray-300/70 overflow-hidden">
+            {/* [수정] 음수 방지: 0보다 작으면 0으로 표시 */}
+            <span className="text-pink-400 font-bold text-lg min-w-[28px] text-right drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
+              {Math.max(0, npcStatus.affectionScore)}
+            </span>
+            <div className="relative flex-1 h-[16px] rounded-full bg-gray-300/70 overflow-hidden border border-white/20">
+              {/* [수정] 50점 만점 기준: 점수 * 2하여 퍼센트 계산 (최대 100%) */}
               <div
                 className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-pink-400 to-pink-500 transition-all duration-500 ease-out"
-                style={{ width: `${npcStatus.affectionScore}%` }}
+                style={{
+                  width: `${Math.min(100, Math.max(0, npcStatus.affectionScore) * 2)}%`,
+                }}
               />
             </div>
           </div>
 
           {/* 의심도 */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <div className="w-[30px] flex-shrink-0 flex justify-center">
               <Image
                 src="/icon/cloud_icon.svg"
@@ -565,10 +627,17 @@ export default function GameInterface() {
                 height={30}
               />
             </div>
-            <div className="relative flex-1 h-[16px] rounded-full bg-gray-300/70 overflow-hidden">
+            {/* [수정] 음수 방지: 0보다 작으면 0으로 표시 */}
+            <span className="text-blue-400 font-bold text-lg min-w-[28px] text-right drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
+              {Math.max(0, npcStatus.suspicionScore)}
+            </span>
+            <div className="relative flex-1 h-[16px] rounded-full bg-gray-300/70 overflow-hidden border border-white/20">
+              {/* [수정] 50점 만점 기준: 점수 * 2하여 퍼센트 계산 (최대 100%) */}
               <div
                 className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-500 ease-out"
-                style={{ width: `${npcStatus.suspicionScore}%` }}
+                style={{
+                  width: `${Math.min(100, Math.max(0, npcStatus.suspicionScore) * 2)}%`,
+                }}
               />
             </div>
           </div>
@@ -890,6 +959,78 @@ export default function GameInterface() {
                   저장
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* [추가] 1. 새 힌트 획득 알림 모달 */}
+        {showNewHintModal && (
+          <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/80 animate-fadeIn">
+            <div className="relative w-[360px] bg-[#1a1a1a] border-2 border-[#D4AF37] rounded-lg p-8 flex flex-col items-center shadow-[0_0_20px_rgba(212,175,55,0.3)] text-center">
+              <p className="text-[#D4AF37] text-xl font-bold mb-4">
+                🔔 새로운 힌트 도착!
+              </p>
+              <div className="bg-black/50 p-4 rounded w-full mb-6 border border-gray-700">
+                <p className="text-white text-lg leading-relaxed whitespace-pre-line">
+                  {showNewHintModal}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowNewHintModal(null)}
+                className="px-8 py-2 bg-[#D4AF37] text-black font-bold rounded hover:bg-[#E2BF25] transition-colors"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* [추가] 2. 힌트 목록 모달 (전구 버튼 눌렀을 때) */}
+        {showHintListModal && (
+          <div className="absolute inset-0 z-[999] flex items-center justify-center bg-black/80 animate-fadeIn">
+            <div className="relative w-[360px] max-h-[600px] bg-[#1a1a1a] border-2 border-[#D4AF37] rounded-lg p-6 flex flex-col items-center shadow-2xl">
+              {/* 닫기 버튼 (우측 상단 X) */}
+              <button
+                onClick={() => setShowHintListModal(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+              >
+                <span className="text-xl font-bold">✕</span>
+              </button>
+
+              <h3 className="text-[#D4AF37] text-2xl font-bold mb-6 border-b border-[#D4AF37]/30 pb-2 w-full text-center">
+                수사 힌트 목록
+              </h3>
+
+              <div className="w-full space-y-4 overflow-y-auto max-h-[400px] pr-2 scrollbar-thin scrollbar-thumb-[#D4AF37] scrollbar-track-transparent">
+                {unlockedHints.length === 0 ? (
+                  <div className="text-gray-500 text-center py-10 space-y-2">
+                    <p>아직 획득한 힌트가 없습니다.</p>
+                    <p className="text-sm">
+                      질문을 계속하여
+                      <br />
+                      새로운 힌트를 얻어보세요!
+                    </p>
+                  </div>
+                ) : (
+                  unlockedHints.map((hint, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-[#2a2a2a] p-4 rounded border-l-4 border-[#D4AF37] text-left animate-fadeIn shadow-md"
+                    >
+                      <p className="text-white text-base leading-relaxed break-keep">
+                        {hint}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <button
+                onClick={() => setShowHintListModal(false)}
+                className="mt-6 w-full py-3 border border-[#D4AF37] text-[#D4AF37] rounded hover:bg-[#D4AF37] hover:text-black font-bold transition-colors uppercase tracking-widest"
+              >
+                닫기
+              </button>
             </div>
           </div>
         )}
