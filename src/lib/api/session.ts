@@ -54,7 +54,7 @@ export async function createGameSession(): Promise<GameSession> {
 export function saveSessionData(session: GameSession) {
   localStorage.setItem('sessionId', session.sessionId.toString());
   localStorage.setItem('remainingQuestions', session.remainingQuestions.toString());
-  localStorage.setItem('gameStartTime', session.startTime);
+  // gameStartTime은 start 페이지에서 현재 시간으로 직접 설정됨 (실제 플레이타임 측정용)
   localStorage.setItem('gameProgress', session.gameProgress.toString());
 }
 

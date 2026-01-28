@@ -5,13 +5,20 @@ import { useRouter } from "next/navigation";
 // 캐릭터 선택 페이지에서 사용했던 배경과 폰트 스타일을 유지합니다.
 import bgImage from "@/assets/images/캐릭터 선택 페이지 배경화면.png";
 import buttonBg from "@/assets/images/캐릭터 선택 배경 2.png";
+import { clearGameData } from "@/lib/api/auth";
 
 export default function SuccessEndingPage() {
   const router = useRouter();
 
-  // 다시 시작하기: 메인 화면이나 캐릭터 선택 화면으로 이동
+  // 다시 시작하기: 모든 게임 데이터 초기화 후 start 페이지로 이동
   const handleRestart = () => {
-    router.push("/start"); // 또는 캐릭터 선택 페이지 경로
+    console.log("게임 재시작 - 모든 게임 데이터 초기화");
+    
+    // 게임 데이터 완전 초기화 (인증 정보는 유지)
+    clearGameData();
+    
+    // start 페이지로 이동 (새 세션 자동 생성됨)
+    router.push("/start");
   };
 
   // 결과 공유하기: 카카오 공유 등 외부 API 연동 가능

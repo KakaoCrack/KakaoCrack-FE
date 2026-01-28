@@ -30,28 +30,32 @@ const ITEMS: Item[] = [
   {
     id: "fur",
     name: "갈색 털뭉치",
-    description: "갈색 털뭉치\n\n누군가가 떨어뜨린\n갈색 털뭉치이다.\n갈색 털뭉치의 것일까?",
+    description:
+      "갈색 털뭉치\n\n누군가가 떨어뜨린\n갈색 털뭉치이다.\n갈색 털뭉치의 것일까?",
     icon: "/character/아이템_갈색털뭉치.svg",
     miniIcon: "/character/아이템_갈색털뭉치_미니.svg",
   },
   {
     id: "card",
     name: "보안카드",
-    description: "보안카드\n\n현장에서 발견된 보안카드이다.\n오후 11시부터 11시 3분 사이에\n외출했다는 기록이 남아있다.\n소유자는 라이언 경비원으로 보인다.",
+    description:
+      "보안카드\n\n현장에서 발견된 보안카드이다.\n오후 11시부터 11시 3분 사이에\n외출했다는 기록이 남아있다.\n소유자는 라이언 경비원으로 보인다.",
     icon: "/character/아이템_보안카드.svg",
     miniIcon: "/character/아이템_보안카드_미니.svg",
   },
   {
     id: "chocolate",
     name: "초콜릿 봉지",
-    description: "초콜릿 봉지\n\n누군가가 떨어뜨린\n초콜릿 봉지이다.\n탐식실에 비치된 초콜릿과\n동일한 브랜드이다.",
+    description:
+      "초콜릿 봉지\n\n누군가가 떨어뜨린\n초콜릿 봉지이다.\n탐식실에 비치된 초콜릿과\n동일한 브랜드이다.",
     icon: "/character/아이템_초콜릿봉지.svg",
     miniIcon: "/character/아이템_초콜릿봉지_미니.svg",
   },
   {
     id: "coffee",
     name: "커피 자국",
-    description: "커피 자국\n\n누군가가 커피를 흘린 자국이\n제대로 지워지지 않고\n희미하게 남아 있었다.\n어피치의 동선을 추적 의도했다.",
+    description:
+      "커피 자국\n\n누군가가 커피를 흘린 자국이\n제대로 지워지지 않고\n희미하게 남아 있었다.\n어피치의 동선을 추적 의도했다.",
     icon: "/character/아이템_커피자국.svg",
     miniIcon: "/character/아이템_커피자국_미니.svg",
   },
@@ -108,22 +112,42 @@ export default function StartPage() {
           saveSessionData(session);
           sessionId = session.sessionId.toString();
 
+          // 🎮 게임 시작 시간을 현재 시간으로 설정 (실제 플레이타임 측정용)
+          const currentTime = new Date().toISOString();
+          localStorage.setItem("gameStartTime", currentTime);
+
           console.log("✅ 새 게임 세션 생성 완료:", {
             sessionId: session.sessionId,
             remainingQuestions: session.remainingQuestions,
-            startTime: session.startTime,
+            gameStartTime: currentTime,
           });
         } catch (error) {
           console.error("세션 생성 실패:", error);
 
-          if (error instanceof Error && error.message.includes("인증")) {
-            alert("로그인이 필요합니다.");
+          // 인증 오류 또는 403 에러 시 로그인 페이지로 이동
+          if (
+            error instanceof Error &&
+            (error.message.includes("인증") ||
+              error.message.includes("403") ||
+              error.message.includes("401"))
+          ) {
+            alert("로그인이 필요합니다. 로그인 페이지로 이동합니다.");
             router.push("/login");
+          } else {
+            alert("세션 생성에 실패했습니다. 다시 시도해주세요.");
           }
           return;
         } finally {
           sessionStorage.removeItem("sessionCreating");
           isInitializing = false;
+        }
+      } else {
+        // 세션이 있지만 gameStartTime이 없으면 설정 (혹시 모를 경우 대비)
+        const existingStartTime = localStorage.getItem("gameStartTime");
+        if (!existingStartTime) {
+          const currentTime = new Date().toISOString();
+          localStorage.setItem("gameStartTime", currentTime);
+          console.log("⏱️ 게임 시작 시간 설정:", currentTime);
         }
       }
 
@@ -192,7 +216,10 @@ export default function StartPage() {
 
       // 성공 시 상태 업데이트 (백엔드에서 받은 description 사용)
       let cleanDescription = item.description;
-      if (acquiredItem.description && acquiredItem.description !== "undefined") {
+      if (
+        acquiredItem.description &&
+        acquiredItem.description !== "undefined"
+      ) {
         cleanDescription = String(acquiredItem.description)
           .replace(/undefined/gi, "")
           .trim();
@@ -590,10 +617,11 @@ export default function StartPage() {
                     {/* 2. 아이콘 (게이지 바 밖으로 꺼내서 왼쪽 배치) */}
                     <div className="w-[32px] flex justify-center flex-shrink-0">
                       <Image
-                        src="/icon/cloud_icon.svg"
-                        alt="cloud"
+                        src="/icon/humidity_fill.svg"
+                        alt="humidity"
                         width={32}
                         height={32}
+                        className="scale-130"
                       />
                     </div>
 

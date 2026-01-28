@@ -333,6 +333,10 @@ export default function GameInterface() {
             console.log("isConfessed:", resData.state?.isConfessed);
             console.log("remainingQuestions:", resData.remainingQuestions);
 
+            // ✨ 타이핑 완료 시 입력창 자동으로 비우기
+            setUserInput("");
+            setLastSentMessage("");
+
             if (resData.state?.isConfessed === true) {
               console.log("✅ 검거 성공! 성공 모달 1.5초 후 표시");
               if (endingTimeoutRef.current) {
@@ -568,7 +572,7 @@ export default function GameInterface() {
               {/* 2. 힌트 버튼 (메모 바로 아래) */}
               <button
                 onClick={() => setShowHintListModal(true)}
-                className="w-12 h-12 transition-transform hover:scale-110 active:scale-95 flex items-center justify-center bg-black/30 rounded-full border-2 border-[#D4AF37]/50"
+                className="absolute top-120 right-4 z-50 w-12 h-12 transition-transform hover:scale-110 active:scale-95 flex items-center justify-center bg-black/30 rounded-full border-2 border-[#D4AF37]/50"
                 title="획득한 힌트 보기"
               >
                 <span className="text-2xl filter drop-shadow-md">💡</span>
@@ -621,10 +625,11 @@ export default function GameInterface() {
           <div className="flex items-center gap-2">
             <div className="w-[30px] flex-shrink-0 flex justify-center">
               <Image
-                src="/icon/cloud_icon.svg"
-                alt="의심도"
+                src="/icon/humidity_fill.svg"
+                alt="rain"
                 width={30}
                 height={30}
+                className="scale-130"
               />
             </div>
             {/* [수정] 음수 방지: 0보다 작으면 0으로 표시 */}
@@ -992,9 +997,9 @@ export default function GameInterface() {
               {/* 닫기 버튼 (우측 상단 X) */}
               <button
                 onClick={() => setShowHintListModal(false)}
-                className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+                className="absolute top-4 right-4 text-red-400 transition-transform hover:scale-110 active:scale-95"
               >
-                <span className="text-xl font-bold">✕</span>
+                <span className="text-2xl font-bold">✕</span>
               </button>
 
               <h3 className="text-[#D4AF37] text-2xl font-bold mb-6 border-b border-[#D4AF37]/30 pb-2 w-full text-center">
