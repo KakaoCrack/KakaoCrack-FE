@@ -20,6 +20,9 @@ import {
   INITIAL_GREETINGS,
 } from "@/constants/gameData";
 
+// [추가] 사운드 유틸리티 임포트
+import { playSFX } from "@/utils/sound";
+
 const HINT_THRESHOLDS: Record<number, string> = {
   100: "💡 힌트 1: 어피치의 호감도를 30까지 올려 보셨나요?",
   10: "💡 힌트 2: 무지의 의심도를 50까지 올려 보셨나요?",
@@ -194,6 +197,7 @@ export default function GameInterface() {
   }, [searchParams]);
 
   const handleLogout = () => {
+    playSFX("click"); // [SFX] 클릭 소리
     router.push("/characterselect");
   };
 
@@ -229,6 +233,12 @@ export default function GameInterface() {
           }
           return newText;
         });
+
+        // [SFX] 타이핑 소리 재생 (매 글자마다)
+        if (index % 3 === 0) {
+          playSFX("typing");
+        }
+
         index++;
       } else {
         if (typingIntervalRef.current) {
@@ -262,6 +272,8 @@ export default function GameInterface() {
 
   const handleSendMessage = async () => {
     if (!userInput.trim() || isSending) return;
+
+    playSFX("click"); // [SFX] 전송 버튼 클릭 소리
 
     const messageContent = userInput;
     const targetName = selectedCharacter;
@@ -390,6 +402,7 @@ export default function GameInterface() {
               const updated = [...prev, newHint];
               localStorage.setItem("unlockedHints", JSON.stringify(updated));
               setShowNewHintModal(newHint); // 알림 모달 띄우기
+              playSFX("hint"); // [SFX] 힌트 획득 소리!
               return updated;
             }
             return prev;
@@ -447,6 +460,7 @@ export default function GameInterface() {
         if (newItems.length > 0) {
           setNewlyAcquiredItems(newItems);
           setShowItemAcquiredModal(true);
+          playSFX("item_get"); // [SFX] 아이템 획득 소리!
 
           setInventory((prev) => {
             const updatedInventory = [...prev, ...newItems];
@@ -470,25 +484,30 @@ export default function GameInterface() {
   };
 
   const handleEndingNext = () => {
+    playSFX("click");
     router.push("/ending_arrest");
   };
 
   const handleFailNext = () => {
+    playSFX("click");
     router.push("/ending_fail");
   };
 
   const handleAcquiredModalConfirm = () => {
+    playSFX("click");
     setShowItemAcquiredModal(false);
     setNewlyAcquiredItems([]);
   };
 
   const handleSaveMemo = () => {
+    playSFX("click");
     console.log("메모 저장:", memoText);
     localStorage.setItem("userMemo", memoText);
     setShowMemoModal(false);
   };
 
   const handleCloseMemo = () => {
+    playSFX("click");
     setShowMemoModal(false);
     const savedMemo = localStorage.getItem("userMemo");
     if (savedMemo) {
@@ -497,8 +516,25 @@ export default function GameInterface() {
   };
 
   const handleItemDetail = (item: Item) => {
+    playSFX("click");
     setCurrentItem(item);
     setShowItemDetailModal(true);
+  };
+
+  // 모달/UI 열기 핸들러들
+  const openMemo = () => {
+    playSFX("modal_open"); // [SFX] 모달 열기 소리
+    setShowMemoModal(true);
+  };
+
+  const openInventory = () => {
+    playSFX("modal_open"); // [SFX] 모달 열기 소리
+    setShowInventory((v) => !v);
+  };
+
+  const openHintList = () => {
+    playSFX("modal_open");
+    setShowHintListModal(true);
   };
 
   const getCharacterImageSrc = () => {
@@ -534,6 +570,7 @@ export default function GameInterface() {
           {/* 왼쪽: 나가기 버튼 */}
           <button
             onClick={handleLogout}
+            onMouseEnter={() => playSFX("hover")} // [SFX] 마우스 호버
             className="w-12 h-12 transition-transform hover:scale-110 active:scale-95"
           >
             <Image
@@ -558,7 +595,8 @@ export default function GameInterface() {
             <div className="flex flex-col items-center gap-2">
               {/* 1. 메모 버튼 (위) */}
               <button
-                onClick={() => setShowMemoModal(true)}
+                onClick={openMemo} // [SFX] 적용된 핸들러 사용
+                onMouseEnter={() => playSFX("hover")}
                 className="w-12 h-12 transition-transform hover:scale-110 active:scale-95"
               >
                 <Image
@@ -571,8 +609,9 @@ export default function GameInterface() {
 
               {/* 2. 힌트 버튼 (메모 바로 아래) */}
               <button
-                onClick={() => setShowHintListModal(true)}
-                className="absolute top-120 right-4 z-50 w-12 h-12 transition-transform hover:scale-110 active:scale-95 flex items-center justify-center bg-black/30 rounded-full border-2 border-[#D4AF37]/50"
+                onClick={openHintList}
+                onMouseEnter={() => playSFX("hover")}
+                className="w-12 h-12 transition-transform hover:scale-110 active:scale-95 flex items-center justify-center bg-black/30 rounded-full border-2 border-[#D4AF37]/50"
                 title="획득한 힌트 보기"
               >
                 <span className="text-2xl filter drop-shadow-md">💡</span>
@@ -581,7 +620,8 @@ export default function GameInterface() {
 
             {/* 3. 인벤토리 버튼 (메모 옆에 위치) */}
             <button
-              onClick={() => setShowInventory((v) => !v)}
+              onClick={openInventory} // [SFX] 적용된 핸들러 사용
+              onMouseEnter={() => playSFX("hover")}
               className="w-12 h-12 transition-transform hover:scale-110 active:scale-95"
             >
               <Image
@@ -625,11 +665,10 @@ export default function GameInterface() {
           <div className="flex items-center gap-2">
             <div className="w-[30px] flex-shrink-0 flex justify-center">
               <Image
-                src="/icon/humidity_fill.svg"
-                alt="rain"
+                src="/icon/cloud_icon.svg"
+                alt="의심도"
                 width={30}
                 height={30}
-                className="scale-130"
               />
             </div>
             {/* [수정] 음수 방지: 0보다 작으면 0으로 표시 */}
@@ -709,6 +748,7 @@ export default function GameInterface() {
               />
               <button
                 onClick={handleSendMessage}
+                onMouseEnter={() => playSFX("hover")}
                 className="ml-3 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform"
               >
                 <Image
@@ -749,6 +789,7 @@ export default function GameInterface() {
               </div>
               <button
                 onClick={handleEndingNext}
+                onMouseEnter={() => playSFX("hover")}
                 className="px-10 py-2 border border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black transition-colors font-bold rounded shadow-[0_0_10px_rgba(212,175,55,0.2)]"
               >
                 확인
@@ -794,6 +835,7 @@ export default function GameInterface() {
               </div>
               <button
                 onClick={handleFailNext}
+                onMouseEnter={() => playSFX("hover")}
                 className="px-10 py-2 border border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black transition-colors font-bold rounded shadow-[0_0_10px_rgba(212,175,55,0.2)]"
               >
                 확인
@@ -834,6 +876,7 @@ export default function GameInterface() {
               </div>
               <button
                 onClick={handleAcquiredModalConfirm}
+                onMouseEnter={() => playSFX("hover")}
                 className="px-10 py-2 border border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37] hover:text-black transition-colors font-bold rounded shadow-[0_0_10px_rgba(212,175,55,0.2)]"
               >
                 확인
@@ -878,9 +921,10 @@ export default function GameInterface() {
                         )}
                       </div>
                       <button
-                        onClick={() =>
-                          inventoryItem && handleItemDetail(inventoryItem)
-                        }
+                        onClick={() => {
+                          if (inventoryItem) handleItemDetail(inventoryItem);
+                        }}
+                        onMouseEnter={() => playSFX("hover")}
                         disabled={!inventoryItem}
                         className={[
                           "w-8 h-8 flex items-center justify-center transition-transform",
@@ -913,7 +957,11 @@ export default function GameInterface() {
                   {currentItem.description}
                 </div>
                 <button
-                  onClick={() => setShowItemDetailModal(false)}
+                  onClick={() => {
+                    playSFX("click");
+                    setShowItemDetailModal(false);
+                  }}
+                  onMouseEnter={() => playSFX("hover")}
                   className="px-8 py-2 bg-[#4A4A4A] hover:bg-[#5A5A5A] text-[#D4AF37] font-semibold rounded-lg transition-colors"
                 >
                   확인
@@ -937,6 +985,7 @@ export default function GameInterface() {
               <button
                 type="button"
                 onClick={handleCloseMemo}
+                onMouseEnter={() => playSFX("hover")}
                 className="absolute top-11 right-2 z-50 w-8 h-9 flex items-center justify-center pointer-events-auto hover:scale-110 active:scale-95 transition-transform"
               >
                 <Image
@@ -959,6 +1008,7 @@ export default function GameInterface() {
                 />
                 <button
                   onClick={handleSaveMemo}
+                  onMouseEnter={() => playSFX("hover")}
                   className="mt-4 mx-auto px-10 py-2 bg-[#D4AF37] hover:bg-[#E2BF25] text-black font-semibold rounded-lg transition-colors"
                 >
                   저장
@@ -968,7 +1018,7 @@ export default function GameInterface() {
           </div>
         )}
 
-        {/* [추가] 1. 새 힌트 획득 알림 모달 */}
+        {/* 새 힌트 알림 모달 */}
         {showNewHintModal && (
           <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-black/80 animate-fadeIn">
             <div className="relative w-[360px] bg-[#1a1a1a] border-2 border-[#D4AF37] rounded-lg p-8 flex flex-col items-center shadow-[0_0_20px_rgba(212,175,55,0.3)] text-center">
@@ -981,7 +1031,11 @@ export default function GameInterface() {
                 </p>
               </div>
               <button
-                onClick={() => setShowNewHintModal(null)}
+                onClick={() => {
+                  playSFX("click");
+                  setShowNewHintModal(null);
+                }}
+                onMouseEnter={() => playSFX("hover")}
                 className="px-8 py-2 bg-[#D4AF37] text-black font-bold rounded hover:bg-[#E2BF25] transition-colors"
               >
                 확인
@@ -990,16 +1044,19 @@ export default function GameInterface() {
           </div>
         )}
 
-        {/* [추가] 2. 힌트 목록 모달 (전구 버튼 눌렀을 때) */}
+        {/* 힌트 목록 모달 */}
         {showHintListModal && (
           <div className="absolute inset-0 z-[999] flex items-center justify-center bg-black/80 animate-fadeIn">
             <div className="relative w-[360px] max-h-[600px] bg-[#1a1a1a] border-2 border-[#D4AF37] rounded-lg p-6 flex flex-col items-center shadow-2xl">
-              {/* 닫기 버튼 (우측 상단 X) */}
               <button
-                onClick={() => setShowHintListModal(false)}
+                onClick={() => {
+                  playSFX("click");
+                  setShowHintListModal(false);
+                }}
+                onMouseEnter={() => playSFX("hover")}
                 className="absolute top-4 right-4 text-red-400 transition-transform hover:scale-110 active:scale-95"
               >
-                <span className="text-2xl font-bold">✕</span>
+                <span className="text-xl font-bold">✕</span>
               </button>
 
               <h3 className="text-[#D4AF37] text-2xl font-bold mb-6 border-b border-[#D4AF37]/30 pb-2 w-full text-center">
@@ -1031,7 +1088,11 @@ export default function GameInterface() {
               </div>
 
               <button
-                onClick={() => setShowHintListModal(false)}
+                onClick={() => {
+                  playSFX("click");
+                  setShowHintListModal(false);
+                }}
+                onMouseEnter={() => playSFX("hover")}
                 className="mt-6 w-full py-3 border border-[#D4AF37] text-[#D4AF37] rounded hover:bg-[#D4AF37] hover:text-black font-bold transition-colors uppercase tracking-widest"
               >
                 닫기

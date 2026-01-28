@@ -12,6 +12,7 @@ import frameBg from "@/assets/images/캐릭터 액자 배경.png";
 import inventoryBg from "@/assets/images/인벤토리 배경.png";
 import userMemoBg from "@/assets/images/사용자 메모.png";
 import { getSessionInventory, ITEM_ID_REVERSE_MAP } from "@/lib/api/inventory";
+import { playSFX } from "@/utils/sound"; // [SFX] 사운드 유틸리티 임포트
 
 // 아이템 타입 정의
 type Item = {
@@ -27,32 +28,35 @@ const ITEMS: Item[] = [
   {
     id: "fur",
     name: "갈색 털뭉치",
-    description: "갈색 털뭉치\n\n누군가가 떨어뜨린\n갈색 털뭉치이다.\n갈색 털뭉치의 것일까?",
+    description:
+      "갈색 털뭉치\n\n누군가가 떨어뜨린\n갈색 털뭉치이다.\n갈색 털뭉치의 것일까?",
     icon: "/character/아이템_갈색털뭉치.svg",
     miniIcon: "/character/아이템_갈색털뭉치_미니.svg",
   },
   {
     id: "card",
     name: "보안카드",
-    description: "보안카드\n\n현장에서 발견된 보안카드이다.\n오후 11시부터 11시 3분 사이에\n외출했다는 기록이 남아있다.\n소유자는 라이언 경비원으로 보인다.",
+    description:
+      "보안카드\n\n현장에서 발견된 보안카드이다.\n오후 11시부터 11시 3분 사이에\n외출했다는 기록이 남아있다.\n소유자는 라이언 경비원으로 보인다.",
     icon: "/character/아이템_보안카드.svg",
     miniIcon: "/character/아이템_보안카드_미니.svg",
   },
   {
     id: "chocolate",
     name: "초콜릿 봉지",
-    description: "초콜릿 봉지\n\n누군가가 떨어뜨린\n초콜릿 봉지이다.\n탐식실에 비치된 초콜릿과\n동일한 브랜드이다.",
+    description:
+      "초콜릿 봉지\n\n누군가가 떨어뜨린\n초콜릿 봉지이다.\n탐식실에 비치된 초콜릿과\n동일한 브랜드이다.",
     icon: "/character/아이템_초콜릿봉지.svg",
     miniIcon: "/character/아이템_초콜릿봉지_미니.svg",
   },
   {
     id: "coffee",
     name: "커피 자국",
-    description: "커피 자국\n\n누군가가 커피를 흘린 자국이\n제대로 지워지지 않고\n희미하게 남아 있었다.\n어피치의 동선을 추적 의도했다.",
+    description:
+      "커피 자국\n\n누군가가 커피를 흘린 자국이\n제대로 지워지지 않고\n희미하게 남아 있었다.\n어피치의 동선을 추적 의도했다.",
     icon: "/character/아이템_커피자국.svg",
     miniIcon: "/character/아이템_커피자국_미니.svg",
   },
-  // 커피자국은 서버 API 연동 시 어피치 호감도 조건 충족으로 자동 지급
 ];
 
 export default function CharacterSelectPage() {
@@ -61,7 +65,7 @@ export default function CharacterSelectPage() {
   const [showMemoModal, setShowMemoModal] = useState(false);
   const [memoText, setMemoText] = useState("");
 
-  // 인벤토리 관련 상태 - localStorage에서 획득한 아이템만 불러오기
+  // 인벤토리 관련 상태
   const [inventory, setInventory] = useState<Item[]>([]);
   const [showInventory, setShowInventory] = useState(false);
   const [showItemDetailModal, setShowItemDetailModal] = useState(false);
@@ -75,8 +79,6 @@ export default function CharacterSelectPage() {
     const loadInventory = async () => {
       const sessionId = localStorage.getItem("sessionId");
       if (!sessionId) {
-        console.log("세션 ID가 없습니다. localStorage에서 불러옵니다.");
-        // 세션 ID가 없으면 localStorage에서 불러오기 (폴백)
         const savedItems = localStorage.getItem("collectedItems");
         if (savedItems) {
           setInventory(JSON.parse(savedItems));
@@ -87,14 +89,12 @@ export default function CharacterSelectPage() {
       try {
         const items = await getSessionInventory(sessionId);
 
-        // 백엔드 아이템을 프론트엔드 형식으로 변환 (백엔드 description 사용)
         const frontendItems: Item[] = items
           .map((item) => {
             const frontendId = ITEM_ID_REVERSE_MAP[item.itemId];
             const itemData = ITEMS.find((i) => i.id === frontendId);
             if (!itemData) return null;
 
-            // description에서 undefined 완전 제거
             let cleanDescription = itemData.description;
             if (item.description && item.description !== "undefined") {
               cleanDescription = String(item.description)
@@ -113,12 +113,9 @@ export default function CharacterSelectPage() {
           .filter((item): item is Item => item !== null);
 
         setInventory(frontendItems);
-
-        // localStorage에도 저장 (동기화)
         localStorage.setItem("collectedItems", JSON.stringify(frontendItems));
       } catch (error) {
         console.error("인벤토리 로드 실패:", error);
-        // 에러 시 localStorage에서 불러오기 (폴백)
         const savedItems = localStorage.getItem("collectedItems");
         if (savedItems) {
           setInventory(JSON.parse(savedItems));
@@ -126,7 +123,6 @@ export default function CharacterSelectPage() {
       }
     };
 
-    // localStorage에서 저장된 메모 불러오기
     const savedMemo = localStorage.getItem("userMemo");
     if (savedMemo) {
       setMemoText(savedMemo);
@@ -137,6 +133,7 @@ export default function CharacterSelectPage() {
 
   // 캐릭터 선택 토글 함수
   const handleCharacterClick = (id: string) => {
+    playSFX("click"); // [SFX] 캐릭터 선택 소리
     if (selectedId === id) {
       setSelectedId(null);
     } else {
@@ -145,15 +142,15 @@ export default function CharacterSelectPage() {
   };
 
   const handleSaveMemo = () => {
+    // playSFX("click"); // GlobalSoundEffect가 있다면 중복 방지 위해 제거 가능 (없으면 주석 해제)
     console.log("메모 저장:", memoText);
-    // localStorage에 메모 저장
     localStorage.setItem("userMemo", memoText);
     setShowMemoModal(false);
   };
 
   const handleCloseMemo = () => {
+    // playSFX("click"); // GlobalSoundEffect 사용 시 자동 처리됨
     setShowMemoModal(false);
-    // 닫을 때 저장된 내용을 다시 불러와서 변경사항 버리기
     const savedMemo = localStorage.getItem("userMemo");
     if (savedMemo) {
       setMemoText(savedMemo);
@@ -162,24 +159,34 @@ export default function CharacterSelectPage() {
 
   // 인벤토리에서 아이템 상세 보기 함수
   const handleItemDetail = (item: Item) => {
+    playSFX("click"); // [SFX] 아이템 클릭
     setCurrentItem(item);
     setShowItemDetailModal(true);
   };
 
+  // 모달 열기 핸들러 (SFX 추가를 위해 분리 권장)
+  const openMemoModal = () => {
+    playSFX("modal_open"); // [SFX] 종이/책 넘기는 소리
+    setShowMemoModal(true);
+  };
+
+  const toggleInventory = () => {
+    playSFX("modal_open"); // [SFX] 가방 여는 소리
+    setShowInventory(!showInventory);
+  };
+
   // 시작 버튼 클릭 핸들러
   const handleStartClick = () => {
+    playSFX("click"); // [SFX] 시작 버튼 클릭
     if (selectedId) {
-      // 선택된 캐릭터의 이름 찾기
       const selectedCharacter = CHARACTERS.find(
         (char) => char.id === selectedId,
       );
       if (selectedCharacter) {
         console.log("취조 시작:", selectedCharacter.name);
-        // 캐릭터 이름과 함께 취조 페이지로 이동
         router.push(`/interrogation?character=${selectedCharacter.name}`);
       }
     } else {
-      // 캐릭터가 선택되지 않았을 때 오류 모달 띄우기
       setShowErrorModal(true);
     }
   };
@@ -208,6 +215,7 @@ export default function CharacterSelectPage() {
           <div className="justify-self-start">
             <button
               onClick={() => router.push("/start")}
+              onMouseEnter={() => playSFX("hover")} // [SFX] 호버 소리
               className="hover:scale-110 transition-transform active:scale-95"
             >
               <Image
@@ -239,19 +247,20 @@ export default function CharacterSelectPage() {
           {/* 오른쪽: 아이콘들 (오른쪽 정렬) */}
           <div className="justify-self-end flex gap-5">
             <button
-              onClick={() => setShowMemoModal(true)}
+              onClick={openMemoModal} // [SFX] 적용된 핸들러 사용
+              onMouseEnter={() => playSFX("hover")}
               className="hover:scale-110 transition-transform active:scale-95"
             >
-              {" "}
               <Image
                 src="/icon/memo_icon.svg"
                 alt="Memo"
                 width={48}
                 height={48}
-              />{" "}
+              />
             </button>
             <button
-              onClick={() => setShowInventory(!showInventory)}
+              onClick={toggleInventory} // [SFX] 적용된 핸들러 사용
+              onMouseEnter={() => playSFX("hover")}
               className="hover:scale-110 transition-transform active:scale-95"
             >
               <Image
@@ -268,7 +277,6 @@ export default function CharacterSelectPage() {
         {showMemoModal && (
           <div className="absolute inset-0 z-[999] bg-black/60 animate-fadeIn">
             <div className="absolute top-[110px] left-1/2 -translate-x-1/2 w-[360px] h-[330px] relative">
-              {/* 배경 이미지가 클릭을 가로채지 않게 */}
               <Image
                 src={userMemoBg}
                 alt="메모지"
@@ -277,10 +285,11 @@ export default function CharacterSelectPage() {
                 className="object-contain pointer-events-none"
               />
 
-              {/* X 닫기 버튼: 무조건 최상단 + 클릭 가능 */}
+              {/* X 닫기 버튼 */}
               <button
                 type="button"
                 onClick={handleCloseMemo}
+                onMouseEnter={() => playSFX("hover")}
                 className="absolute top-11 right-2 z-50 w-8 h-9 flex items-center justify-center pointer-events-auto hover:scale-110 active:scale-95 transition-transform"
               >
                 <Image
@@ -307,6 +316,7 @@ export default function CharacterSelectPage() {
 
                 <button
                   onClick={handleSaveMemo}
+                  onMouseEnter={() => playSFX("hover")}
                   className="mt-4 mx-auto px-10 py-2 bg-[#D4AF37] hover:bg-[#E2BF25] text-black font-semibold rounded-lg transition-colors"
                 >
                   저장
@@ -355,6 +365,7 @@ export default function CharacterSelectPage() {
                         onClick={() =>
                           inventoryItem && handleItemDetail(inventoryItem)
                         }
+                        onMouseEnter={() => playSFX("hover")}
                         disabled={!inventoryItem}
                         className={[
                           "w-8 h-8 flex items-center justify-center transition-transform",
@@ -378,7 +389,7 @@ export default function CharacterSelectPage() {
           </div>
         )}
 
-        {/* 아이템 상세 모달 (StartPage 스타일 적용) */}
+        {/* 아이템 상세 모달 */}
         {showItemDetailModal && currentItem && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 animate-fadeIn">
             <div className="bg-black/90 border-4 border-[#D4AF37] rounded-3xl p-8 w-[380px] shadow-2xl">
@@ -388,6 +399,7 @@ export default function CharacterSelectPage() {
                 </div>
                 <button
                   onClick={() => setShowItemDetailModal(false)}
+                  onMouseEnter={() => playSFX("hover")}
                   className="px-8 py-2 bg-[#4A4A4A] hover:bg-[#5A5A5A] text-[#D4AF37] font-semibold rounded-lg transition-colors"
                 >
                   확인
@@ -397,21 +409,17 @@ export default function CharacterSelectPage() {
           </div>
         )}
 
-        {/* [수정] 오류 모달 (StartPage의 디자인 스타일 적용) */}
+        {/* 오류 모달 */}
         {showErrorModal && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 animate-fadeIn">
             <div className="bg-black/90 border-4 border-[#D4AF37] rounded-3xl p-10 w-[500px] h-[300px] flex flex-col items-center justify-center shadow-2xl">
-              {/* 제목: StartPage의 금색(#D4AF37) 사용 */}
               <div className="text-[#D4AF37] text-3xl font-bold mb-8">오류</div>
-
-              {/* 메시지: StartPage의 금색(#D4AF37) 사용 */}
               <div className="text-[#D4AF37] text-xl font-bold mb-10">
                 취조할 캐릭터를 선택하세요 !!
               </div>
-
-              {/* 버튼: StartPage의 버튼 스타일 그대로 사용 */}
               <button
                 onClick={() => setShowErrorModal(false)}
+                onMouseEnter={() => playSFX("hover")}
                 className="px-10 py-3 bg-[#4A4A4A] hover:bg-[#5A5A5A] text-[#D4AF37] font-bold text-lg rounded-lg transition-colors"
               >
                 확인
@@ -428,7 +436,8 @@ export default function CharacterSelectPage() {
               className="flex flex-col items-center w-full max-w-[220px]"
             >
               <div
-                onClick={() => handleCharacterClick(char.id)}
+                onClick={() => handleCharacterClick(char.id)} // [SFX] 핸들러 내부에서 click 소리 재생
+                onMouseEnter={() => playSFX("hover")} // [SFX] 호버 소리
                 className={`relative overflow-hidden w-full aspect-[3/4] rounded-xl cursor-pointer border-4 transition-all duration-300
                   ${
                     selectedId === char.id
@@ -475,7 +484,8 @@ export default function CharacterSelectPage() {
         {/* 4. 시작 버튼 */}
         <div className="relative z-20 mt-14">
           <button
-            onClick={handleStartClick}
+            onClick={handleStartClick} // [SFX] 핸들러 내부에서 click 소리 재생
+            onMouseEnter={() => playSFX("hover")}
             className={`relative overflow-hidden px-24 py-3 border-4 rounded-md text-2xl font-bold transition-all duration-300 shadow-[0_6px_0_0_#2a1d15] active:translate-y-1 active:shadow-none
               ${
                 selectedId
