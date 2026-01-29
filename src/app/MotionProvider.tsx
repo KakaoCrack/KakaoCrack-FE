@@ -1,5 +1,6 @@
 "use client";
 
+import type { Variants } from "framer-motion";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 
@@ -10,7 +11,7 @@ export default function MotionProvider({
 }) {
   const pathname = usePathname();
 
-  const page = {
+  const page: Variants = {
     initial: {
       opacity: 0,
       filter: "blur(6px) contrast(1.15) brightness(0.85)",
@@ -22,7 +23,7 @@ export default function MotionProvider({
       transform: "translateY(0px) scale(1)",
       transition: {
         duration: 0.08,
-        ease: [0.2, 0.8, 0.2, 1],
+        ease: [0.2, 0.8, 0.2, 1] as const,
       },
     },
     exit: {
@@ -31,13 +32,12 @@ export default function MotionProvider({
       transform: "translateY(-18px) scale(0.985)",
       transition: {
         duration: 0.28,
-        ease: [0.4, 0, 0.2, 1],
+        ease: [0.4, 0, 0.2, 1] as const,
       },
     },
   };
 
-  // 위치 이동 제거한 글리치 (색/밝기만 순간 변화)
-  const glitch = {
+  const glitch: Variants = {
     initial: {
       filter: "contrast(1) brightness(1)",
     },
@@ -67,7 +67,6 @@ export default function MotionProvider({
         key={pathname}
         style={{ minHeight: "100vh", position: "relative" }}
       >
-        {/* 화면 오버레이: 스캔라인 + 살짝 비네팅 느낌 */}
         <motion.div
           aria-hidden
           initial={{ opacity: 0 }}
@@ -85,7 +84,6 @@ export default function MotionProvider({
           }}
         />
 
-        {/* 실제 페이지 컨텐츠 */}
         <motion.div
           variants={page}
           initial="initial"
