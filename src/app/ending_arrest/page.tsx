@@ -3,86 +3,115 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-// 캐릭터 선택 페이지에서 사용했던 배경과 폰트 스타일을 유지합니다.
 import bgImage from "@/assets/images/캐릭터 선택 페이지 배경화면.png";
 import buttonBg from "@/assets/images/캐릭터 선택 배경 2.png";
 import { clearGameData } from "@/lib/api/auth";
+import { playSFX } from "@/utils/sound"; // [SFX] 사운드 추가
 
 export default function SuccessEndingPage() {
   const router = useRouter();
   const [playTime, setPlayTime] = useState<string>("0분 0초");
 
+  // 1. 카카오 SDK 초기화
   useEffect(() => {
-    // 플레이타임 계산
-    const startTimeStr = localStorage.getItem("gameStartTime");
-    if (startTimeStr) {
-      const startTime = new Date(startTimeStr);
-      
-      // 종료 시간을 localStorage에서 먼저 확인
-      // 이미 저장된 종료 시간이 있으면 그것을 사용 (페이지에 머물러도 시간이 고정됨)
-      let endTimeStr = localStorage.getItem("gameEndTime");
-      let endTime: Date;
-      
-      if (!endTimeStr) {
-        // 종료 시간이 없으면 현재 시간을 종료 시간으로 저장
-        endTime = new Date();
-        localStorage.setItem("gameEndTime", endTime.toISOString());
-        console.log("✅ 게임 종료 시간 저장:", endTime.toISOString());
-      } else {
-        // 이미 저장된 종료 시간 사용
-        endTime = new Date(endTimeStr);
-        console.log("📌 저장된 게임 종료 시간 사용:", endTime.toISOString());
+    if (typeof window !== "undefined" && window.Kakao) {
+      if (!window.Kakao.isInitialized()) {
+        // .env 파일에 NEXT_PUBLIC_KAKAO_API_KEY가 있어야 합니다.
+        window.Kakao.init(process.env.NEXT_PUBLIC_KAKAO_API_KEY);
       }
-      
-      // 밀리초 차이 계산
-      const diffMs = endTime.getTime() - startTime.getTime();
-      
-      // 시간, 분, 초로 변환
-      const hours = Math.floor(diffMs / 3600000);
-      const minutes = Math.floor((diffMs % 3600000) / 60000);
-      const seconds = Math.floor((diffMs % 60000) / 1000);
-      
-      // 시간 포맷 생성
-      let timeString = "";
-      if (hours > 0) {
-        timeString = `${hours}시간 ${minutes}분 ${seconds}초`;
-      } else if (minutes > 0) {
-        timeString = `${minutes}분 ${seconds}초`;
-      } else {
-        timeString = `${seconds}초`;
-      }
-      
-      setPlayTime(timeString);
-      
-      // 플레이타임을 localStorage에 저장 (카카오 공유 시 사용)
-      localStorage.setItem("playTime", timeString);
-      
-      // 디버깅용 로그
-      console.log("게임 시작 시간:", startTime.toLocaleString());
-      console.log("게임 종료 시간:", endTime.toLocaleString());
-      console.log("플레이 시간:", timeString);
-      console.log("총 밀리초:", diffMs);
     }
   }, []);
 
-  // 다시 시작하기: 모든 게임 데이터 초기화 후 start 페이지로 이동
+  // 2. 플레이 타임 계산 로직
+  useEffect(() => {
+    const startTimeStr = localStorage.getItem("gameStartTime");
+    if (startTimeStr) {
+      const startTime = new Date(startTimeStr);
+      let endTimeStr = localStorage.getItem("gameEndTime");
+      let endTime: Date;
+
+      if (!endTimeStr) {
+        endTime = new Date();
+        localStorage.setItem("gameEndTime", endTime.toISOString());
+      } else {
+        endTime = new Date(endTimeStr);
+      }
+
+      const diffMs = endTime.getTime() - startTime.getTime();
+      const hours = Math.floor(diffMs / 3600000);
+      const minutes = Math.floor((diffMs % 3600000) / 60000);
+      const seconds = Math.floor((diffMs % 60000) / 1000);
+
+      // 02분 10초 처럼 두 자리수로 맞추려면 padStart 사용 (선택사항)
+      // 여기서는 기존 로직 유지하되 포맷만 맞춤
+      let timeString = "";
+      if (hours > 0) {
+        timeString = `${hours}시간 ${minutes}분 ${seconds}초`;
+      } else {
+        // 분/초가 한 자리일 때 '0' 붙여서 예쁘게 만들기 (이미지처럼)
+        const mm = String(minutes).padStart(2, "0");
+        const ss = String(seconds).padStart(2, "0");
+        timeString = `${mm}분 ${ss}초`;
+      }
+
+      setPlayTime(timeString);
+      localStorage.setItem("playTime", timeString);
+    }
+  }, []);
+
   const handleRestart = () => {
+    playSFX("click");
     console.log("게임 재시작 - 모든 게임 데이터 초기화");
-    
-    // 게임 데이터 완전 초기화 (인증 정보는 유지)
     clearGameData();
-    
-    // start 페이지로 이동 (새 세션 자동 생성됨)
     router.push("/start");
   };
 
-  // 결과 공유하기: 카카오 공유 등 외부 API 연동 가능
+  // ✅ [수정됨] 키 값을 직접 넣어서 환경 변수 문제를 원천 차단합니다.
   const handleShare = () => {
+    playSFX("click");
     console.log("결과 공유하기 클릭");
-    console.log("플레이타임:", playTime);
-    // TODO: 카카오 공유하기 로직 추가
-    // 플레이타임은 localStorage.getItem("playTime")으로 가져올 수 있음
-    /////////////////////////////////
+
+    // 1. SDK 로드 확인
+    if (!window.Kakao) {
+      alert("카카오톡 SDK가 로드되지 않았습니다.");
+      return;
+    }
+
+    // 2. 초기화 (환경 변수 대신 실제 키 사용)
+    // 배포 환경에서 .env를 못 읽는 문제를 배제하기 위함입니다.
+    if (!window.Kakao.isInitialized()) {
+      console.log("카카오 SDK 초기화 시도...");
+      window.Kakao.init("996d722957661604b740a907265c549c");
+    }
+
+    const DEPLOY_URL = "https://kakaocrack-572d9.web.app";
+    // ⚠️ 파일명이 thumbnail.png 인지 꼭 확인해주세요 (스크린샷엔 안보임)
+    const IMAGE_URL = `${DEPLOY_URL}/thumbnail.png`;
+
+    console.log("공유하기 요청 전송...");
+
+    // 3. 공유하기 실행
+    window.Kakao.Share.sendDefault({
+      objectType: "feed",
+      content: {
+        title: "추리 성공! 황금 콘 회수 완료 💎",
+        description: `플레이 타임: ${playTime} | \n당신의 추리력을 테스트해보세요.`,
+        imageUrl: IMAGE_URL,
+        link: {
+          mobileWebUrl: DEPLOY_URL,
+          webUrl: DEPLOY_URL,
+        },
+      },
+      buttons: [
+        {
+          title: "나도 도전하기",
+          link: {
+            mobileWebUrl: DEPLOY_URL,
+            webUrl: DEPLOY_URL,
+          },
+        },
+      ],
+    });
   };
 
   return (
@@ -97,19 +126,17 @@ export default function SuccessEndingPage() {
             src={bgImage}
             alt="Background"
             fill
-            className="object-cover opacity-40" // 결과 페이지는 좀 더 어둡게 설정
+            className="object-cover opacity-40"
             priority
           />
-          {/* 하단 그라데이션 오버레이로 텍스트 가독성 확보 */}
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/80" />
         </div>
 
         {/* 2. 중앙 결과 콘텐츠 영역 */}
         <div className="relative z-10 flex flex-col items-center justify-center h-full w-full mt-10">
-          {/* 캐릭터와 아이템이 들어가는 메인 컨테이너 (도장은 여기서 분리함) */}
+          {/* 캐릭터와 아이템이 들어가는 메인 컨테이너 */}
           <div className="relative w-[500px] h-[400px] flex items-end justify-center mb-10">
-            {/* 1. ARREST 도장 (위치 수정: 컨테이너 밖으로 더 왼쪽으로 뺌) */}
-            {/* left 값을 마이너스로 주거나, 부모 기준 절대 위치로 변경 */}
+            {/* 1. ARREST 도장 */}
             <div className="absolute top-[200px] -left-[180px] z-30 animate-stamp-slam">
               <div className="border-[8px] border-[#ff0000] px-6 py-2 rounded-xl transform rotate-[25deg] bg-black/10 backdrop-blur-[1px]">
                 <span className="text-[#ff0000] text-7xl font-black tracking-tighter opacity-90 font-sans whitespace-nowrap">
@@ -118,7 +145,7 @@ export default function SuccessEndingPage() {
               </div>
             </div>
 
-            {/* 2. 잡힌 범인 캐릭터 (중앙) */}
+            {/* 2. 잡힌 범인 캐릭터 */}
             <div className="relative w-80 h-60 z-10">
               <Image
                 src="/character/프로도_당황.svg"
@@ -128,9 +155,7 @@ export default function SuccessEndingPage() {
               />
             </div>
 
-            {/* 3. 황금 콘 (위치 수정: 캐릭터 쪽으로 당기기) */}
-            {/* right-0 : 캐릭터 컨테이너의 오른쪽 끝에 딱 붙음
-        translate-x : 미세 조정 (음수면 왼쪽, 양수면 오른쪽) */}
+            {/* 3. 황금 콘 */}
             <div className="absolute right-0 bottom-0 w-32 h-32 z-20 animate-bounce-subtle translate-x-[20px]">
               <Image
                 src="/character/황금 콘.svg"
@@ -141,7 +166,7 @@ export default function SuccessEndingPage() {
             </div>
           </div>
 
-          {/* 결과 메시지: 금색(#D4AF37) 포인트 */}
+          {/* 결과 메시지 */}
           <div className="text-center mb-8">
             <span className="text-[#D4AF37] text-4xl font-bold drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
               추리 성공 !! 황금 콘 동상을 되찾았습니다 ! <br />
@@ -156,6 +181,7 @@ export default function SuccessEndingPage() {
             {/* 다시 시작하기 버튼 */}
             <button
               onClick={handleRestart}
+              onMouseEnter={() => playSFX("hover")}
               className="relative overflow-hidden px-12 py-4 border-4 border-[#8b5e3c] rounded-md text-xl font-bold text-white transition-all hover:brightness-110 active:scale-95 shadow-[0_4px_0_0_#2a1d15]"
             >
               <div className="absolute inset-0 z-0">
@@ -172,6 +198,7 @@ export default function SuccessEndingPage() {
             {/* 결과 공유하기 버튼 */}
             <button
               onClick={handleShare}
+              onMouseEnter={() => playSFX("hover")}
               className="relative overflow-hidden px-12 py-4 border-4 border-[#8b5e3c] rounded-md text-xl font-bold text-white transition-all hover:brightness-110 active:scale-95 shadow-[0_4px_0_0_#2a1d15]"
             >
               <div className="absolute inset-0 z-0">
@@ -200,6 +227,20 @@ export default function SuccessEndingPage() {
         }
         .animate-bounce-subtle {
           animation: bounce-subtle 2s infinite ease-in-out;
+        }
+        @keyframes stamp-slam {
+          0% {
+            transform: scale(3) rotate(25deg);
+            opacity: 0;
+          }
+          100% {
+            transform: scale(1) rotate(25deg);
+            opacity: 1;
+          }
+        }
+        .animate-stamp-slam {
+          animation: stamp-slam 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)
+            forwards;
         }
       `}</style>
     </div>

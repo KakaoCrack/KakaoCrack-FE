@@ -1,7 +1,6 @@
 "use client";
 
-import type { Variants } from "framer-motion";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, Variants } from "framer-motion";
 import { usePathname } from "next/navigation";
 
 export default function MotionProvider({
@@ -11,94 +10,63 @@ export default function MotionProvider({
 }) {
   const pathname = usePathname();
 
+  // 1. 애니메이션 타이밍 조정 (너무 빠르지 않게 수정)
   const page: Variants = {
     initial: {
       opacity: 0,
-      filter: "blur(6px) contrast(1.15) brightness(0.85)",
-      transform: "translateY(18px) scale(0.985)",
+      filter: "blur(4px) contrast(1.1) brightness(0.9)", // 흐림 정도 살짝 완화
+      transform: "translateY(10px) scale(0.99)", // 이동 거리 살짝 줄임 (자연스러움 유도)
     },
     animate: {
       opacity: 1,
       filter: "blur(0px) contrast(1) brightness(1)",
       transform: "translateY(0px) scale(1)",
       transition: {
-        duration: 0.08,
-        ease: [0.2, 0.8, 0.2, 1] as const,
+        duration: 0.35, // 0.08 -> 0.35로 늘려서 부드럽게 변경
+        ease: [0.25, 1, 0.5, 1], // 부드러운 감속 커브 (cubic-bezier)
       },
     },
     exit: {
       opacity: 0,
-      filter: "blur(6px) contrast(1.15) brightness(0.85)",
-      transform: "translateY(-18px) scale(0.985)",
+      filter: "blur(4px) contrast(1.1) brightness(0.9)",
+      transform: "translateY(-10px) scale(0.99)",
       transition: {
-        duration: 0.28,
-        ease: [0.4, 0, 0.2, 1] as const,
+        duration: 0.2, // 나갈 때는 들어올 때보다 약간 빠르게
+        ease: [0.25, 1, 0.5, 1],
       },
     },
   };
 
-  const glitch: Variants = {
-    initial: {
-      filter: "contrast(1) brightness(1)",
-    },
-    animate: {
-      filter: [
-        "contrast(1.25) brightness(0.95)",
-        "contrast(1.1) brightness(1.05)",
-        "contrast(1) brightness(1)",
-      ],
-      transition: {
-        duration: 0.05,
-        ease: "linear",
-      },
-    },
-    exit: {
-      filter: "contrast(1) brightness(1)",
-      transition: {
-        duration: 0.05,
-        ease: "linear",
-      },
-    },
+  // CRT/노이즈 효과 (배경)
+  const overlayStyle: React.CSSProperties = {
+    pointerEvents: "none",
+    position: "absolute", // fixed에서 absolute로 변경하여 레이아웃 문제 방지
+    inset: 0,
+    zIndex: 9999,
+    background:
+      "radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.1) 70%, rgba(0,0,0,0.3) 100%), repeating-linear-gradient(to bottom, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, rgba(0,0,0,0) 3px, rgba(0,0,0,0) 6px)",
+    mixBlendMode: "overlay",
   };
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
+    <AnimatePresence mode="wait">
+      {/* ✅ 핵심 수정 사항: 
+        key={pathname}과 variants={page}를 동일한 motion.div에 적용해야 
+        AnimatePresence가 정상적으로 퇴장 애니메이션을 인식합니다.
+      */}
       <motion.div
         key={pathname}
-        style={{ minHeight: "100vh", position: "relative" }}
+        variants={page}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        style={{ minHeight: "100vh", position: "relative", width: "100%" }}
       >
-        <motion.div
-          aria-hidden
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.25 }}
-          style={{
-            pointerEvents: "none",
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            background:
-              "radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.22) 70%, rgba(0,0,0,0.45) 100%), repeating-linear-gradient(to bottom, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, rgba(0,0,0,0) 3px, rgba(0,0,0,0) 6px)",
-            mixBlendMode: "overlay",
-          }}
-        />
+        {/* CRT 오버레이 효과도 페이지와 함께 페이드인/아웃 되도록 내부로 포함 */}
+        <div style={overlayStyle} aria-hidden="true" />
 
-        <motion.div
-          variants={page}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-        >
-          <motion.div
-            variants={glitch}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-          >
-            {children}
-          </motion.div>
-        </motion.div>
+        {/* 글리치 효과나 내부 컨텐츠 */}
+        {children}
       </motion.div>
     </AnimatePresence>
   );

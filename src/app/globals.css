@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ✨ [수정 1] 기본 변수값을 아예 게임 테마색(#121212)으로 고정 */
+  --background: #121212;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -12,15 +13,28 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* (게임은 보통 다크모드 고정이므로 media query 부분은 선택사항입니다. 
+   확실한 고정을 위해 일단 유지하되 위 :root 설정이 우선하도록 둡니다.) */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #121212;
     --foreground: #ededed;
   }
 }
 
+/* ✨ [핵심 수정 2] html과 body에 강제로 검은색 배경을 박아넣습니다. 
+   이 코드가 있어야 페이지 전환 시 빈틈(흰색)이 보이지 않습니다. */
+html,
 body {
-  background: var(--background);
+  background-color: #121212 !important; /* !important로 최우선 적용 */
   color: var(--foreground);
+  height: 100%; /* 전체 높이 확보 */
+  margin: 0;
+  padding: 0;
+}
+
+body {
   font-family: Arial, Helvetica, sans-serif;
+  /* background 속성은 위에서 background-color로 처리했으므로 중복 방지 차원에서 둡니다 */
+  background: var(--background);
 }

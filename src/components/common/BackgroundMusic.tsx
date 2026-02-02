@@ -88,8 +88,10 @@ export default function BackgroundMusic() {
         console.log(`🎵 BGM 변경: ${targetTrack}`);
         audio.src = targetTrack;
 
-        // 반복 재생(loop) 여부 결정
-        if (targetTrack.includes("ending")) {
+        // ✅ [수정됨] 파일명이 아니라 '현재 경로(pathname)'를 기준으로 반복 여부 결정
+        // 경로에 'ending'이 포함되어 있으면 반복 끄기 (ending_arrest, ending_fail 모두 적용됨)
+        if (pathname.includes("ending")) {
+          console.log("🔂 엔딩 페이지: 반복 재생 OFF");
           audio.loop = false; // 한 번만 재생
         } else {
           audio.loop = true; // 무한 반복
