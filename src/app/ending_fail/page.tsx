@@ -13,19 +13,12 @@ export default function SuccessEndingPage() {
   // 다시 시작하기: 모든 게임 데이터 초기화 후 start 페이지로 이동
   const handleRestart = () => {
     console.log("게임 재시작 - 모든 게임 데이터 초기화");
-    
+
     // 게임 데이터 완전 초기화 (인증 정보는 유지)
     clearGameData();
-    
+
     // start 페이지로 이동 (새 세션 자동 생성됨)
     router.push("/start");
-  };
-
-  // 결과 공유하기: 카카오 공유 등 외부 API 연동 가능
-  const handleShare = () => {
-    console.log("결과 공유하기 클릭");
-    // TODO: 카카오 공유하기 로직 추가
-    /////////////////////////////////
   };
 
   return (

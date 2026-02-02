@@ -81,7 +81,7 @@ export default function SuccessEndingPage() {
     // 배포 환경에서 .env를 못 읽는 문제를 배제하기 위함입니다.
     if (!window.Kakao.isInitialized()) {
       console.log("카카오 SDK 초기화 시도...");
-      window.Kakao.init("996d722957661604b740a907265c549c");
+      window.Kakao.init(process.env.NEXT_PUBLIC_KAKAO_API_KEY);
     }
 
     const DEPLOY_URL = "https://kakaocrack-572d9.web.app";
