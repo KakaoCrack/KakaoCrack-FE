@@ -2,7 +2,7 @@ import { Item } from "@/types/game";
 
 export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-const ITEMS: Item[] = [
+export const ITEMS: Item[] = [
   {
     id: "fur",
     name: "갈색 털뭉치",
@@ -35,8 +35,14 @@ const ITEMS: Item[] = [
     icon: "/character/아이템_커피자국.svg",
     miniIcon: "/character/아이템_커피자국_미니.svg",
   },
-  // 커피자국은 화면에 표시되지 않고, 서버 API 연동 시 어피치 호감도 조건 충족으로 자동 지급
 ];
+
+export const CHARACTER_BUSTS: Record<string, string> = {
+  RYAN: "/character/라이언_기본_흉상.svg",
+  MUZI: "/character/무지_기본_흉상.svg",
+  APEACH: "/character/어피치_기본_흉상.svg",
+  FRODO: "/character/프로도_기본_흉상.svg",
+};
 
 export const CHARACTER_BUSTS: Record<string, string> = {
   RYAN: "/character/라이언_기본_흉상.svg",
