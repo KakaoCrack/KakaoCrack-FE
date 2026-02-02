@@ -1,6 +1,7 @@
 import { Item } from "@/types/game";
 
-export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+export const BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 export const ITEMS: Item[] = [
   {
@@ -36,13 +37,6 @@ export const ITEMS: Item[] = [
     miniIcon: "/character/아이템_커피자국_미니.svg",
   },
 ];
-
-export const CHARACTER_BUSTS: Record<string, string> = {
-  RYAN: "/character/라이언_기본_흉상.svg",
-  MUZI: "/character/무지_기본_흉상.svg",
-  APEACH: "/character/어피치_기본_흉상.svg",
-  FRODO: "/character/프로도_기본_흉상.svg",
-};
 
 export const CHARACTER_BUSTS: Record<string, string> = {
   RYAN: "/character/라이언_기본_흉상.svg",
