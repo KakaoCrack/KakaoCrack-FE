@@ -606,16 +606,6 @@ export default function GameInterface() {
                   height={40}
                 />
               </button>
-
-              {/* 2. 힌트 버튼 (메모 바로 아래) */}
-              <button
-                onClick={openHintList}
-                onMouseEnter={() => playSFX("hover")}
-                className="w-12 h-12 transition-transform hover:scale-110 active:scale-95 flex items-center justify-center bg-black/30 rounded-full border-2 border-[#D4AF37]/50"
-                title="획득한 힌트 보기"
-              >
-                <span className="text-2xl filter drop-shadow-md">💡</span>
-              </button>
             </div>
 
             {/* 3. 인벤토리 버튼 (메모 옆에 위치) */}
@@ -665,10 +655,11 @@ export default function GameInterface() {
           <div className="flex items-center gap-2">
             <div className="w-[30px] flex-shrink-0 flex justify-center">
               <Image
-                src="/icon/cloud_icon.svg"
+                src="/icon/humidity_fill.svg"
                 alt="의심도"
                 width={30}
                 height={30}
+                className="scale-130"
               />
             </div>
             {/* [수정] 음수 방지: 0보다 작으면 0으로 표시 */}
@@ -700,20 +691,35 @@ export default function GameInterface() {
           </div>
         </div>
 
-        {/* 캐릭터 대화창 */}
-        <div className="absolute left-1/2 top-[540px] -translate-x-1/2 z-30 w-[400px] h-[170px] rounded-2xl overflow-hidden border-[4px] border-[#864313] shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
-          <Image
-            src={characterDialogBg}
-            alt="대사 배경"
-            fill
-            className="object-cover"
-            priority
-          />
-          <div className="absolute inset-0 flex items-center justify-center px-8 py-6">
-            <p className="text-white text-center text-base leading-relaxed whitespace-pre-wrap">
-              {displayedReply}
-              {isTyping && <span className="animate-pulse">|</span>}
-            </p>
+        {/* 캐릭터 대화창 + 힌트 버튼 (수정됨) */}
+        <div className="absolute left-1/2 top-[540px] -translate-x-1/2 z-30 w-[400px] h-[170px]">
+          {/* ✅ 힌트 버튼: 대화창 박스 외부(위쪽) 우측에 배치 */}
+          <button
+            onClick={openHintList}
+            onMouseEnter={() => playSFX("hover")}
+            // -top-12: 박스 위로 48px 올림 (외부 위치)
+            // right-0: 오른쪽 정렬
+            className="absolute -top-14 right-0 z-50 w-12 h-12 transition-transform hover:scale-110 active:scale-95 flex items-center justify-center bg-black/60 rounded-full border-2 border-[#D4AF37] shadow-lg cursor-pointer"
+            title="획득한 힌트 보기"
+          >
+            <span className="text-2xl filter drop-shadow-md">💡</span>
+          </button>
+
+          {/* 대화창 본문 (기존 디자인 유지) */}
+          <div className="relative w-full h-full rounded-2xl overflow-hidden border-[4px] border-[#864313] shadow-[0_12px_30px_rgba(0,0,0,0.55)]">
+            <Image
+              src={characterDialogBg}
+              alt="대사 배경"
+              fill
+              className="object-cover"
+              priority
+            />
+            <div className="absolute inset-0 flex items-center justify-center px-8 py-6">
+              <p className="text-white text-center text-base leading-relaxed whitespace-pre-wrap">
+                {displayedReply}
+                {isTyping && <span className="animate-pulse">|</span>}
+              </p>
+            </div>
           </div>
         </div>
 
