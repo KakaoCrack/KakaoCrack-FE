@@ -2,12 +2,12 @@ import { Item } from "@/types/game";
 
 export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-export const ITEMS: Item[] = [
+const ITEMS: Item[] = [
   {
     id: "fur",
     name: "갈색 털뭉치",
     description:
-      "갈색 털뭉치\n\n누군가가 떨어뜨린\n갈색 털뭉치이다.\n갈색 털뭉치의 것일까?",
+      "갈색 털뭉치\n\n누군가가 떨어뜨린\n갈색 털뭉치이다.\n갈색 털동물의 것일까?",
     icon: "/character/아이템_갈색털뭉치.svg",
     miniIcon: "/character/아이템_갈색털뭉치_미니.svg",
   },
@@ -23,7 +23,7 @@ export const ITEMS: Item[] = [
     id: "chocolate",
     name: "초콜릿 봉지",
     description:
-      "초콜릿 봉지\n\n누군가가 떨어뜨린\n초콜릿 봉지이다.\n탐식실에 비치된 초콜릿과\n동일한 브랜드이다.",
+      "초콜릿 봉지\n\n누군가가 떨어뜨린\n초콜릿 봉지이다.\n탕비실에 비치된 초콜릿과\n동일한 브랜드이다.",
     icon: "/character/아이템_초콜릿봉지.svg",
     miniIcon: "/character/아이템_초콜릿봉지_미니.svg",
   },
@@ -31,10 +31,11 @@ export const ITEMS: Item[] = [
     id: "coffee",
     name: "커피 자국",
     description:
-      "커피 자국\n\n누군가가 커피를 흘린 자국이\n제대로 지워지지 않고\n희미하게 남아 있었다.\n어피치의 동선을 추적 의도했다.",
+      "커피 자국\n\n누군가가 커피를 흘린 자국이\n제대로 지워지지 않고\n희미하게 남아 있었다.\n어피치의 증언을 통해 획득했다.",
     icon: "/character/아이템_커피자국.svg",
     miniIcon: "/character/아이템_커피자국_미니.svg",
   },
+  // 커피자국은 화면에 표시되지 않고, 서버 API 연동 시 어피치 호감도 조건 충족으로 자동 지급
 ];
 
 export const CHARACTER_BUSTS: Record<string, string> = {
